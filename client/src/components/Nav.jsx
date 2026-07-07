@@ -18,6 +18,7 @@ export default function Nav() {
           <a href="/#about" className="ink-underline pb-1">About</a>
           <a href="/#faq" className="ink-underline pb-1">FAQ</a>
           <Link to="/credits" className="ink-underline pb-1">Credits</Link>
+          <Link to="/student/login" className="ink-underline pb-1">Student Login</Link>
         </nav>
 
         <button
