@@ -1,0 +1,62 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+  body {
+    @apply bg-parchment text-ink-900 font-body antialiased;
+  }
+  ::selection {
+    @apply bg-gold-100 text-ink-900;
+  }
+  :focus-visible {
+    outline: 2px solid #C9A227;
+    outline-offset: 3px;
+  }
+}
+
+@layer utilities {
+  .ink-underline {
+    background-image: linear-gradient(#C9A227, #C9A227);
+    background-repeat: no-repeat;
+    background-position: 0 100%;
+    background-size: 0% 2px;
+    transition: background-size 0.35s ease;
+  }
+  .ink-underline:hover,
+  .ink-underline:focus-visible {
+    background-size: 100% 2px;
+  }
+
+  /* Signature element: marginalia — a hand-set annotation in the gutter,
+     styled like a note an admissions reader might pencil beside a paragraph. */
+  .marginalia {
+    position: relative;
+  }
+  .marginalia::before {
+    content: attr(data-note);
+    position: absolute;
+    top: 0.15em;
+    left: -0.85rem;
+    transform: translateX(-100%);
+    width: 11rem;
+    font-family: 'Fraunces', serif;
+    font-style: italic;
+    font-size: 0.8rem;
+    line-height: 1.35;
+    color: #A9820F;
+    opacity: 0.85;
+  }
+  @media (max-width: 1024px) {
+    .marginalia::before {
+      display: none;
+    }
+  }
+
+  .paper-shadow {
+    box-shadow: 0 1px 2px rgba(11, 31, 59, 0.04), 0 12px 32px -12px rgba(11, 31, 59, 0.18);
+  }
+}

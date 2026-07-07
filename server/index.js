@@ -1,0 +1,37 @@
+import "dotenv/config";
+import express from "express";
+import cors from "cors";
+import { initDb } from "./config/db.js";
+import authRoutes from "./routes/auth.js";
+import submissionsRoutes from "./routes/submissions.js";
+import accountsRoutes from "./routes/accounts.js";
+import creditRequestsRoutes from "./routes/creditRequests.js";
+
+const app = express();
+const PORT = process.env.PORT || 4000;
+
+if (!process.env.JWT_SECRET) {
+  console.error("Missing JWT_SECRET in .env — refusing to start without it.");
+  process.exit(1);
+}
+
+app.use(cors({ origin: process.env.CLIENT_ORIGIN || "http://localhost:5173" }));
+app.use(express.json({ limit: "2mb" }));
+
+app.get("/api/health", (req, res) => res.json({ ok: true }));
+app.use("/api/auth", authRoutes);
+app.use("/api/submissions", submissionsRoutes);
+app.use("/api/accounts", accountsRoutes);
+app.use("/api/credit-requests", creditRequestsRoutes);
+
+// Centralized error handler (catches anything thrown synchronously in handlers)
+app.use((err, req, res, next) => {
+  console.error(err);
+  res.status(500).json({ error: "Something went wrong on our end." });
+});
+
+initDb().then(() => {
+  app.listen(PORT, () => {
+    console.log(`Veritas Prep API running on http://localhost:${PORT}`);
+  });
+});
