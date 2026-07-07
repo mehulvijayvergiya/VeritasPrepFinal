@@ -1,25 +1,24 @@
 # Dependencies
 node_modules/
 
-# Environment variables
+# Environment variables (never commit real secrets)
 .env
-.env.*
+.env.local
+.env.*.local
 
-# Build files
-dist/
-
-# Vite
-.vite/
-
-# Database files
+# LowDB data file (contains real student PII — must never be committed)
 server/veritas.json
+server/*.db
+
+# Build output
+client/dist/
+client/.vite/
 
 # Logs
+npm-debug.log*
 *.log
 
-# OS files
+# OS/editor cruft
 .DS_Store
-Thumbs.db
-
-# Editor files
 .vscode/
+.idea/

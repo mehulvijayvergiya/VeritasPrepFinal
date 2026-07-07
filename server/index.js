@@ -1,20 +1,20 @@
 import "dotenv/config";
 import express from "express";
 import cors from "cors";
+import helmet from "helmet";
 import { initDb } from "./config/db.js";
+import { validateEnv } from "./config/env.js";
 import authRoutes from "./routes/auth.js";
 import submissionsRoutes from "./routes/submissions.js";
 import accountsRoutes from "./routes/accounts.js";
 import creditRequestsRoutes from "./routes/creditRequests.js";
 
+validateEnv();
+
 const app = express();
 const PORT = process.env.PORT || 4000;
 
-if (!process.env.JWT_SECRET) {
-  console.error("Missing JWT_SECRET in .env — refusing to start without it.");
-  process.exit(1);
-}
-
+app.use(helmet());
 app.use(cors({ origin: process.env.CLIENT_ORIGIN || "http://localhost:5173" }));
 app.use(express.json({ limit: "2mb" }));
 
