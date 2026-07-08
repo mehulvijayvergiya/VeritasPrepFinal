@@ -1,0 +1,119 @@
+import { useState } from "react";
+import { Link } from "react-router-dom";
+import { registerStudent } from "../../lib/studentAuth.js";
+
+export default function StudentRegister() {
+  const [fullName, setFullName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    setLoading(true);
+    setError("");
+    try {
+      await registerStudent({ email, password, fullName });
+      setSubmitted(true);
+    } catch (err) {
+      setError(err.message || "Unable to create your account.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  if (submitted) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-ink-900 px-6">
+        <div className="w-full max-w-sm rounded-sm bg-white p-7 text-center paper-shadow">
+          <h1 className="font-display text-2xl text-ink-900">Check your email</h1>
+          <p className="mt-3 font-body text-sm text-ink-400">
+            We sent a verification link to <strong>{email}</strong>. Click it to activate your
+            account, then come back and sign in.
+          </p>
+          <Link
+            to="/student/login"
+            className="mt-6 inline-block font-body text-sm font-medium text-ink-900 ink-underline"
+          >
+            Back to sign in
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-ink-900 px-6">
+      <div className="w-full max-w-sm">
+        <Link to="/" className="flex items-center justify-center gap-3">
+          <img src="/logo.png" alt="Veritas Prep" className="h-12 w-12" />
+        </Link>
+        <h1 className="mt-6 text-center font-display text-2xl text-white">Create your account</h1>
+        <p className="mt-2 text-center font-body text-sm text-ink-100/60">
+          Track submissions, credits, and appointments in one place.
+        </p>
+
+        <form onSubmit={handleSubmit} className="mt-8 space-y-4 rounded-sm bg-white p-7 paper-shadow">
+          <label className="block">
+            <span className="font-body text-sm font-medium text-ink-900">Full name</span>
+            <input
+              type="text"
+              required
+              value={fullName}
+              onChange={(e) => setFullName(e.target.value)}
+              className="mt-2 w-full rounded-sm border border-hairline px-4 py-2.5 font-body text-sm focus:border-ink-900 focus:outline-none"
+              autoComplete="name"
+            />
+          </label>
+          <label className="block">
+            <span className="font-body text-sm font-medium text-ink-900">Email</span>
+            <input
+              type="email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="mt-2 w-full rounded-sm border border-hairline px-4 py-2.5 font-body text-sm focus:border-ink-900 focus:outline-none"
+              autoComplete="username"
+            />
+          </label>
+          <label className="block">
+            <span className="font-body text-sm font-medium text-ink-900">Password</span>
+            <input
+              type="password"
+              required
+              minLength={8}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="mt-2 w-full rounded-sm border border-hairline px-4 py-2.5 font-body text-sm focus:border-ink-900 focus:outline-none"
+              autoComplete="new-password"
+            />
+            <span className="mt-1 block font-body text-xs text-ink-400">At least 8 characters.</span>
+          </label>
+
+          {error && (
+            <div className="rounded-sm border border-red-200 bg-red-50 px-4 py-2.5 font-body text-sm text-red-800">
+              {error}
+            </div>
+          )}
+
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full rounded-sm bg-ink-900 px-5 py-3 font-body text-sm font-medium text-white transition hover:bg-ink-600 disabled:opacity-60"
+          >
+            {loading ? "Creating account…" : "Create account"}
+          </button>
+
+          <p className="text-center font-body text-sm text-ink-400">
+            Already have an account?{" "}
+            <Link to="/student/login" className="font-medium text-ink-900 ink-underline">
+              Sign in
+            </Link>
+          </p>
+        </form>
+      </div>
+    </div>
+  );
+}

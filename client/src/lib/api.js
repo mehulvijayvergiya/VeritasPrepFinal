@@ -4,11 +4,13 @@ function getToken() {
   return sessionStorage.getItem("vp_admin_token");
 }
 
-async function request(path, { method = "GET", body, auth = false } = {}) {
+async function request(path, { method = "GET", body, auth = false, token } = {}) {
   const headers = { "Content-Type": "application/json" };
-  if (auth) {
-    const token = getToken();
-    if (token) headers.Authorization = `Bearer ${token}`;
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  } else if (auth) {
+    const adminToken = getToken();
+    if (adminToken) headers.Authorization = `Bearer ${adminToken}`;
   }
 
   const res = await fetch(`${BASE}${path}`, {
@@ -59,6 +61,9 @@ export const api = {
     request(`/credit-requests/${id}/approve`, { method: "POST", auth: true }),
   rejectCreditRequest: (id) =>
     request(`/credit-requests/${id}/reject`, { method: "POST", auth: true }),
+
+  // Student account (Supabase-authenticated)
+  getStudentMe: (studentToken) => request("/students/me", { token: studentToken }),
 };
 
 export function setToken(token) {
