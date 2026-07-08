@@ -7,7 +7,6 @@ import { validateEnv } from "./config/env.js";
 import authRoutes from "./routes/auth.js";
 import studentsRoutes from "./routes/students.js";
 import submissionsRoutes from "./routes/submissions.js";
-import accountsRoutes from "./routes/accounts.js";
 import creditRequestsRoutes from "./routes/creditRequests.js";
 
 validateEnv();
@@ -23,7 +22,6 @@ app.get("/api/health", (req, res) => res.json({ ok: true }));
 app.use("/api/auth", authRoutes);
 app.use("/api/students", studentsRoutes);
 app.use("/api/submissions", submissionsRoutes);
-app.use("/api/accounts", accountsRoutes);
 app.use("/api/credit-requests", creditRequestsRoutes);
 
 // Centralized error handler (catches anything thrown synchronously in handlers)

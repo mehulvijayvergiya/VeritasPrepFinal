@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { requireAuth } from "../middleware/auth.js";
 import { submitLimiter } from "../middleware/rateLimit.js";
+import { uploadPdf } from "../middleware/upload.js";
 import {
   createSubmission,
   listSubmissions,
@@ -14,8 +15,10 @@ import {
 
 const router = Router();
 
-// Public — a prospective student submitting their application materials
-router.post("/", submitLimiter, createSubmission);
+// Public — a prospective student submitting their application materials.
+// The frontend only reaches this once logged in, but the endpoint itself
+// doesn't require the admin JWT (students don't have one).
+router.post("/", submitLimiter, uploadPdf.single("pdf"), createSubmission);
 
 // Admin only
 router.get("/", requireAuth, listSubmissions);

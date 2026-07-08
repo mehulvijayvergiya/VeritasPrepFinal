@@ -1,30 +1,48 @@
 import { Submission } from "../models/Submission.js";
 import { sendConfirmationEmail, sendFeedbackEmail } from "../services/email.js";
+import { PRICES } from "../config/pricing.js";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+// Client-facing service keys -> authoritative server price keys. Never
+// trust a client-supplied cost for something that spends real credits.
+const SERVICE_KEY_MAP = {
+  activities: "activities",
+  essay_short: "essay_short",
+  essay_medium: "essay_medium",
+  essay_long: "essay_long",
+  meeting: "meeting_15min",
+};
+
 export async function createSubmission(req, res) {
-  const { name, email, colleges, essay, activities, notes } = req.body;
+  const { name, email, colleges, notes, service_key, profile_id } = req.body;
 
   const errors = {};
   if (!name || !name.trim()) errors.name = "Full name is required.";
   if (!email || !EMAIL_RE.test(email)) errors.email = "A valid email is required.";
   if (!colleges || !colleges.trim()) errors.colleges = "Please list at least one target college.";
-  if (!essay || !essay.trim()) errors.essay = "Essay text is required.";
-  else if (essay.trim().length < 50) errors.essay = "Essay looks too short — please paste the full draft.";
-  if (!activities || !activities.trim()) errors.activities = "Activities list is required.";
+
+  const priceKey = SERVICE_KEY_MAP[service_key];
+  if (!priceKey) errors.service_key = "Choose a valid service.";
 
   if (Object.keys(errors).length > 0) {
     return res.status(422).json({ error: "Please fix the highlighted fields.", fields: errors });
   }
 
+  const vcCost = PRICES[priceKey];
+  const serviceLabel = req.body.service_label || service_key;
+
   const submission = await Submission.create({
     name: name.trim(),
     email: email.trim().toLowerCase(),
     colleges: colleges.trim(),
-    essay: essay.trim(),
-    activities: activities.trim(),
     notes: (notes || "").trim(),
+    service_key,
+    service_label: serviceLabel,
+    vc_cost: vcCost,
+    profile_id: profile_id || null,
+    attachment_filename: req.file ? req.file.filename : null,
+    attachment_original_name: req.file ? req.file.originalname : null,
   });
 
   // Don't let an email hiccup fail the submission itself.

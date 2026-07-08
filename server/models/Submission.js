@@ -4,16 +4,35 @@ const VALID_STATUSES = ["pending", "in_review", "completed"];
 const VALID_ANNOTATION_TYPES = ["highlight", "underline", "note"];
 
 export const Submission = {
-  async create({ name, email, colleges, essay, activities, notes }) {
+  async create({
+    name,
+    email,
+    colleges,
+    essay,
+    activities,
+    notes,
+    service_key,
+    service_label,
+    vc_cost,
+    profile_id,
+    attachment_filename,
+    attachment_original_name,
+  }) {
     const now = new Date().toISOString();
     const submission = {
       id: db.data.nextSubmissionId++,
       name,
       email,
       colleges,
-      essay,
-      activities,
+      essay: essay || "",
+      activities: activities || "",
       notes: notes || "",
+      service_key: service_key || null,
+      service_label: service_label || null,
+      vc_cost: vc_cost ?? null,
+      profile_id: profile_id || null,
+      attachment_filename: attachment_filename || null,
+      attachment_original_name: attachment_original_name || null,
       status: "pending",
       reviewer_notes: "",
       annotations: [],
