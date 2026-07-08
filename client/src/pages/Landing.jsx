@@ -47,38 +47,45 @@ export default function Landing() {
       <Nav />
 
       {/* HERO */}
-      <section className="mx-auto max-w-6xl px-6 pb-20 pt-16 sm:pt-24">
-        <div className="grid items-center gap-14 lg:grid-cols-[1.05fr_1fr]">
-          <div>
-            <p className="font-mono text-xs uppercase tracking-widest text-gold-600">
-              Admissions guidance, read closely
-            </p>
-            <h1 className="mt-4 font-display text-[2.75rem] leading-[1.08] text-ink-900 sm:text-6xl">
-              Authentic stories.
-              <br />
-              Stronger applications.
-            </h1>
-            <p className="mt-6 max-w-md font-body text-lg leading-relaxed text-ink-600">
-              Better admissions outcomes start with the parts of your story you've
-              stopped noticing. We help you find them — then help you write them
-              well.
-            </p>
-            <div className="mt-9 flex flex-col gap-3 sm:flex-row sm:items-center">
-              <Link
-                to="/apply"
-                className="rounded-sm bg-ink-900 px-7 py-3.5 text-center font-body text-sm font-medium text-parchment transition hover:bg-ink-600"
-              >
-                Submit Your Application
-              </Link>
-              <a
-                href="#services"
-                className="ink-underline px-1 py-3.5 text-center font-body text-sm font-medium text-ink-900"
-              >
-                See what we review →
-              </a>
-            </div>
-          </div>
+      <section className="mx-auto max-w-3xl px-6 pb-16 pt-16 text-center sm:pt-24">
+        <p className="font-mono text-xs uppercase tracking-widest text-gold-600">
+          Admissions guidance, read closely
+        </p>
+        <h1 className="mt-4 font-display text-[2.75rem] leading-[1.08] text-ink-900 sm:text-6xl">
+          Authentic stories.
+          <br />
+          Stronger applications.
+        </h1>
+        <p className="mx-auto mt-6 max-w-md font-body text-lg leading-relaxed text-ink-600">
+          Better admissions outcomes start with the parts of your story you've
+          stopped noticing. We help you find them — then help you write them
+          well.
+        </p>
+        <div className="mt-9 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
+          <Link
+            to="/apply"
+            className="rounded-sm bg-ink-900 px-7 py-3.5 text-center font-body text-sm font-medium text-parchment transition hover:bg-ink-600"
+          >
+            Submit Your Application
+          </Link>
+          <a
+            href="#services"
+            className="ink-underline px-1 py-3.5 text-center font-body text-sm font-medium text-ink-900"
+          >
+            See what we review →
+          </a>
+        </div>
+      </section>
 
+      {/* SAMPLE REVIEW */}
+      <section className="mx-auto max-w-6xl px-6 pb-20">
+        <p className="text-center font-mono text-xs uppercase tracking-widest text-gold-600">
+          See it in action
+        </p>
+        <h2 className="mt-3 text-center font-display text-3xl text-ink-900 sm:text-4xl">
+          This is what a review looks like.
+        </h2>
+        <div className="mt-10">
           <AnnotatedEssay />
         </div>
       </section>

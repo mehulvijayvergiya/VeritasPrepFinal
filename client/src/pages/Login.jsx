@@ -1,47 +1,41 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
-import { registerStudent } from "../../lib/studentAuth.js";
+import { useNavigate, Link } from "react-router-dom";
+import { loginStudent } from "../lib/studentAuth.js";
+import { api, setToken } from "../lib/api.js";
 
-export default function StudentRegister() {
-  const [fullName, setFullName] = useState("");
+export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const [submitted, setSubmitted] = useState(false);
+  const navigate = useNavigate();
 
   async function handleSubmit(e) {
     e.preventDefault();
     setLoading(true);
     setError("");
+
+    // Try student auth first (the common case), then fall back to admin.
+    // Both use the same email/password fields — this is a single sign-in
+    // form, not a toggle between two flows.
     try {
-      await registerStudent({ email, password, fullName });
-      setSubmitted(true);
-    } catch (err) {
-      setError(err.message || "Unable to create your account.");
+      await loginStudent({ email, password });
+      navigate("/");
+      return;
+    } catch (studentErr) {
+      // fall through to admin attempt
+    }
+
+    try {
+      const { token } = await api.adminLogin(email, password);
+      setToken(token);
+      navigate("/admin");
+      return;
+    } catch (adminErr) {
+      setError("Invalid email or password.");
     } finally {
       setLoading(false);
     }
-  }
-
-  if (submitted) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-ink-900 px-6">
-        <div className="w-full max-w-sm rounded-sm bg-white p-7 text-center paper-shadow">
-          <h1 className="font-display text-2xl text-ink-900">Check your email</h1>
-          <p className="mt-3 font-body text-sm text-ink-400">
-            We sent a verification link to <strong>{email}</strong>. Click it to activate your
-            account, then come back and sign in.
-          </p>
-          <Link
-            to="/login"
-            className="mt-6 inline-block font-body text-sm font-medium text-ink-900 ink-underline"
-          >
-            Back to sign in
-          </Link>
-        </div>
-      </div>
-    );
   }
 
   return (
@@ -50,23 +44,12 @@ export default function StudentRegister() {
         <Link to="/" className="flex items-center justify-center gap-3">
           <img src="/logo.png" alt="Veritas Prep" className="h-12 w-12" />
         </Link>
-        <h1 className="mt-6 text-center font-display text-2xl text-white">Create your account</h1>
+        <h1 className="mt-6 text-center font-display text-2xl text-white">Sign in</h1>
         <p className="mt-2 text-center font-body text-sm text-ink-100/60">
-          Track submissions, credits, and appointments in one place.
+          Veritas Prep
         </p>
 
         <form onSubmit={handleSubmit} className="mt-8 space-y-4 rounded-sm bg-white p-7 paper-shadow">
-          <label className="block">
-            <span className="font-body text-sm font-medium text-ink-900">Full name</span>
-            <input
-              type="text"
-              required
-              value={fullName}
-              onChange={(e) => setFullName(e.target.value)}
-              className="mt-2 w-full rounded-sm border border-hairline px-4 py-2.5 font-body text-sm focus:border-ink-900 focus:outline-none"
-              autoComplete="name"
-            />
-          </label>
           <label className="block">
             <span className="font-body text-sm font-medium text-ink-900">Email</span>
             <input
@@ -83,14 +66,21 @@ export default function StudentRegister() {
             <input
               type="password"
               required
-              minLength={8}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               className="mt-2 w-full rounded-sm border border-hairline px-4 py-2.5 font-body text-sm focus:border-ink-900 focus:outline-none"
-              autoComplete="new-password"
+              autoComplete="current-password"
             />
-            <span className="mt-1 block font-body text-xs text-ink-400">At least 8 characters.</span>
           </label>
+
+          <div className="text-right">
+            <Link
+              to="/student/forgot-password"
+              className="font-body text-xs font-medium text-ink-400 ink-underline"
+            >
+              Forgot password?
+            </Link>
+          </div>
 
           {error && (
             <div className="rounded-sm border border-red-200 bg-red-50 px-4 py-2.5 font-body text-sm text-red-800">
@@ -103,13 +93,13 @@ export default function StudentRegister() {
             disabled={loading}
             className="w-full rounded-sm bg-ink-900 px-5 py-3 font-body text-sm font-medium text-white transition hover:bg-ink-600 disabled:opacity-60"
           >
-            {loading ? "Creating account…" : "Create account"}
+            {loading ? "Signing in…" : "Sign in"}
           </button>
 
           <p className="text-center font-body text-sm text-ink-400">
-            Already have an account?{" "}
-            <Link to="/login" className="font-medium text-ink-900 ink-underline">
-              Sign in
+            Don't have an account?{" "}
+            <Link to="/student/register" className="font-medium text-ink-900 ink-underline">
+              Create one
             </Link>
           </p>
         </form>

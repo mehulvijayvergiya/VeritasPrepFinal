@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import Nav from "../components/Nav.jsx";
 import Footer from "../components/Footer.jsx";
 import { api } from "../lib/api.js";
 import { SERVICES, VC_TO_USD } from "../lib/pricing.js";
+import { getStudentSession } from "../lib/studentAuth.js";
 
 const METHODS = [
   {
@@ -20,79 +21,9 @@ const METHODS = [
   },
 ];
 
-function BalanceLookup() {
-  const [email, setEmail] = useState("");
-  const [account, setAccount] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-
-  async function lookup(e) {
-    e.preventDefault();
-    setLoading(true);
-    setError("");
-    setAccount(null);
-    try {
-      const { account } = await api.getAccount(email.trim());
-      setAccount(account);
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  return (
-    <div className="rounded-sm border border-hairline bg-white p-6 paper-shadow">
-      <p className="font-mono text-xs uppercase tracking-widest text-gold-600">
-        Check your balance
-      </p>
-      <form onSubmit={lookup} className="mt-4 flex gap-3">
-        <input
-          type="email"
-          required
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          placeholder="your@email.com"
-          className="flex-1 rounded-sm border border-hairline px-4 py-2.5 font-body text-sm focus:border-ink-900 focus:outline-none"
-        />
-        <button
-          type="submit"
-          disabled={loading}
-          className="rounded-sm bg-ink-900 px-5 py-2.5 font-body text-sm font-medium text-white transition hover:bg-ink-600 disabled:opacity-60"
-        >
-          {loading ? "…" : "Look up"}
-        </button>
-      </form>
-      {error && <p className="mt-3 font-body text-sm text-red-700">{error}</p>}
-      {account && (
-        <div className="mt-5 flex flex-col gap-4 sm:flex-row sm:items-start sm:gap-8">
-          <div>
-            <p className="font-mono text-xs uppercase tracking-widest text-slate-500">Balance</p>
-            <p className="mt-1 font-display text-4xl text-ink-900">{account.credits} VC</p>
-            <p className="font-body text-sm text-slate-500">
-              ≈ ${(account.credits * VC_TO_USD).toLocaleString()} USD
-            </p>
-          </div>
-          <div>
-            <p className="font-mono text-xs uppercase tracking-widest text-slate-500">
-              Your referral code
-            </p>
-            <p className="mt-1 font-mono text-lg font-medium text-ink-900">
-              {account.referral_code}
-            </p>
-            <p className="font-body text-xs text-slate-500">
-              Share this — you earn 1 VC for every student who uses it.
-            </p>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function PurchaseForm() {
+function PurchaseForm({ prefillEmail }) {
   const [step, setStep] = useState(1); // 1=amount, 2=method+confirm
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState(prefillEmail || "");
   const [qty, setQty] = useState(5);
   const [method, setMethod] = useState("venmo");
   const [referral, setReferral] = useState("");
@@ -156,10 +87,13 @@ function PurchaseForm() {
             <input
               type="email"
               required
+              readOnly={Boolean(prefillEmail)}
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="your@email.com"
-              className="mt-2 w-full rounded-sm border border-hairline px-4 py-2.5 font-body text-sm focus:border-ink-900 focus:outline-none"
+              className={`mt-2 w-full rounded-sm border border-hairline px-4 py-2.5 font-body text-sm focus:border-ink-900 focus:outline-none ${
+                prefillEmail ? "bg-parchment text-ink-600" : ""
+              }`}
             />
           </label>
 
@@ -311,6 +245,18 @@ function PurchaseForm() {
 }
 
 export default function Credits() {
+  const [session, setSession] = useState(undefined); // undefined = checking
+
+  useEffect(() => {
+    let active = true;
+    getStudentSession().then((s) => {
+      if (active) setSession(s);
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
+
   return (
     <div>
       <Nav />
@@ -361,10 +307,23 @@ export default function Credits() {
           1 Veritas Credit = $10 USD &nbsp;·&nbsp; Credits never expire
         </p>
 
-        {/* Two-column: balance lookup + purchase */}
-        <div className="mt-12 grid gap-6 lg:grid-cols-2">
-          <BalanceLookup />
-          <PurchaseForm />
+        {/* Purchase credits — requires login */}
+        <div className="mt-12 max-w-xl">
+          {session === undefined ? null : session ? (
+            <PurchaseForm prefillEmail={session.user.email} />
+          ) : (
+            <div className="rounded-sm border border-hairline bg-white p-6 text-center paper-shadow">
+              <p className="font-body text-sm text-ink-600">
+                Log in to purchase Veritas Credits.
+              </p>
+              <Link
+                to="/login"
+                className="mt-4 inline-block rounded-sm bg-ink-900 px-5 py-2.5 font-body text-sm font-medium text-white transition hover:bg-ink-600"
+              >
+                Login
+              </Link>
+            </div>
+          )}
         </div>
 
         {/* Referral callout */}
@@ -372,7 +331,11 @@ export default function Credits() {
           <p className="font-display text-lg text-ink-900">Refer a friend, earn 1 VC.</p>
           <p className="mt-1.5 font-body text-sm text-ink-600">
             Every student you refer who purchases credits earns you 1 free Veritas
-            Credit. Share your referral code from the balance checker above.
+            Credit. Find your referral code and current balance in your{" "}
+            <Link to="/student/dashboard" className="font-medium text-ink-900 ink-underline">
+              student dashboard
+            </Link>{" "}
+            after signing in.
           </p>
         </div>
       </section>

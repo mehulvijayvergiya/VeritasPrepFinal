@@ -31,8 +31,20 @@ async function request(path, { method = "GET", body, auth = false, token } = {})
   return data;
 }
 
+async function requestMultipart(path, formData) {
+  const res = await fetch(`${BASE}${path}`, { method: "POST", body: formData });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const error = new Error(data.error || "Something went wrong.");
+    error.fields = data.fields;
+    error.status = res.status;
+    throw error;
+  }
+  return data;
+}
+
 export const api = {
-  submitApplication: (payload) => request("/submissions", { method: "POST", body: payload }),
+  submitApplication: (formData) => requestMultipart("/submissions", formData),
   adminLogin: (email, password) =>
     request("/auth/login", { method: "POST", body: { email, password } }),
   listSubmissions: () => request("/submissions", { auth: true }),
@@ -53,7 +65,6 @@ export const api = {
     request(`/submissions/${id}/send-feedback`, { method: "POST", auth: true }),
 
   // Veritas Credits
-  getAccount: (email) => request(`/accounts/${encodeURIComponent(email)}`),
   createCreditRequest: (payload) =>
     request("/credit-requests", { method: "POST", body: payload }),
   listCreditRequests: () => request("/credit-requests", { auth: true }),

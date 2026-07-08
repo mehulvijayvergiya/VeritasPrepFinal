@@ -40,7 +40,7 @@ export default function StudentForgotPassword() {
               link is on its way.
             </p>
             <Link
-              to="/student/login"
+              to="/login"
               className="mt-6 inline-block font-body text-sm font-medium text-ink-900 ink-underline"
             >
               Back to sign in
@@ -75,7 +75,7 @@ export default function StudentForgotPassword() {
             </button>
 
             <p className="text-center font-body text-sm text-ink-400">
-              <Link to="/student/login" className="font-medium text-ink-900 ink-underline">
+              <Link to="/login" className="font-medium text-ink-900 ink-underline">
                 Back to sign in
               </Link>
             </p>

@@ -27,7 +27,7 @@ export default function StudentResetPassword() {
     setError("");
     try {
       await updateStudentPassword(password);
-      navigate("/student/dashboard");
+      navigate("/");
     } catch (err) {
       setError(err.message || "Unable to update your password.");
     } finally {

@@ -32,7 +32,7 @@ export default function StudentDashboard() {
 
   async function handleLogout() {
     await logoutStudent();
-    navigate("/student/login");
+    navigate("/login");
   }
 
   return (

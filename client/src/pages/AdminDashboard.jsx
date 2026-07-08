@@ -342,7 +342,7 @@ export default function AdminDashboard() {
       const { submissions } = await api.listSubmissions();
       setSubmissions(submissions);
     } catch (err) {
-      if (err.status === 401) { clearToken(); navigate("/admin/login"); }
+      if (err.status === 401) { clearToken(); navigate("/login"); }
     } finally {
       setLoading(false);
     }
@@ -386,7 +386,7 @@ export default function AdminDashboard() {
           </nav>
         </div>
         <button
-          onClick={() => { clearToken(); navigate("/admin/login"); }}
+          onClick={() => { clearToken(); navigate("/login"); }}
           className="ink-underline font-body text-sm text-ink-600"
         >
           Sign out

@@ -11,7 +11,7 @@ export default function StudentVerify() {
       const session = await getStudentSession();
       if (session) {
         setStatus("verified");
-        setTimeout(() => navigate("/student/dashboard"), 1500);
+        setTimeout(() => navigate("/"), 1500);
       } else {
         setStatus("failed");
       }
@@ -40,7 +40,7 @@ export default function StudentVerify() {
               link from there.
             </p>
             <Link
-              to="/student/login"
+              to="/login"
               className="mt-6 inline-block font-body text-sm font-medium text-ink-900 ink-underline"
             >
               Go to sign in

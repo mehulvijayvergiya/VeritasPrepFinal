@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Navigate } from "react-router-dom";
 import { getStudentSession, onStudentAuthStateChange } from "../lib/studentAuth.js";
 
-export default function StudentProtectedRoute({ children }) {
+export default function StudentProtectedRoute({ children, redirectTo = "/login" }) {
   const [status, setStatus] = useState("checking"); // checking | authed | anon
 
   useEffect(() => {
@@ -27,6 +27,6 @@ export default function StudentProtectedRoute({ children }) {
     );
   }
 
-  if (status === "anon") return <Navigate to="/student/login" replace />;
+  if (status === "anon") return <Navigate to={redirectTo} replace />;
   return children;
 }

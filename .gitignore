@@ -10,6 +10,9 @@ node_modules/
 server/veritas.json
 server/*.db
 
+# Uploaded PDF attachments (real student files — must never be committed)
+server/uploads/
+
 # Build output
 client/dist/
 client/.vite/
