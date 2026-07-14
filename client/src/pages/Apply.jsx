@@ -197,6 +197,9 @@ export default function Apply() {
     setErrors({});
 
     const fieldErrors = {};
+    if (!profile || !profile.email) {
+      fieldErrors.cart = "Please sign in again so we can load your student profile before submitting.";
+    }
     if (cart.length === 0) fieldErrors.cart = "Select at least one service to submit.";
     if (overBudget) fieldErrors.cart = "You don't have enough credits for what's selected.";
     if (cart.some((item) => item.checklist?.some((entry) => !entry.checked))) {
@@ -250,8 +253,8 @@ export default function Apply() {
         }
 
         const formData = new FormData();
-        formData.append("name", profile.full_name || "");
-        formData.append("email", profile.email);
+        formData.append("name", profile?.full_name || "");
+        formData.append("email", profile?.email || "");
         formData.append("notes", notes.trim());
         formData.append("service_key", item.key);
         formData.append("service_label", item.label);
@@ -264,7 +267,7 @@ export default function Apply() {
         if (item.file) formData.append("pdf", item.file);
         await api.submitApplication(formData, { token: session.access_token });
       }
-      navigate("/apply/confirmation", { state: { name: profile.full_name } });
+      navigate("/apply/confirmation", { state: { name: profile?.full_name || "Student" } });
     } catch (err) {
       setSubmitError(err.message || "Something went wrong. Please try again.");
     } finally {
