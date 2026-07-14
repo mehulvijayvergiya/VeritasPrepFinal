@@ -1,27 +1,40 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { getStudentSession } from "../../lib/studentAuth.js";
+import { completeEmailVerificationFromUrl } from "../../lib/studentAuth.js";
 
 export default function StudentVerify() {
   const [status, setStatus] = useState("checking"); // checking | verified | failed
   const navigate = useNavigate();
 
   useEffect(() => {
-    const timer = setTimeout(async () => {
-      const session = await getStudentSession();
-      if (session) {
-        setStatus("verified");
-        setTimeout(() => navigate("/"), 1500);
-      } else {
-        setStatus("failed");
+    let active = true;
+    (async () => {
+      try {
+        const session = await completeEmailVerificationFromUrl();
+        if (!active) return;
+        if (session) {
+          setStatus("verified");
+          setTimeout(() => navigate("/student/dashboard"), 1500);
+        } else {
+          setStatus("failed");
+        }
+      } catch {
+        if (active) setStatus("failed");
       }
-    }, 400);
-    return () => clearTimeout(timer);
+    })();
+    return () => {
+      active = false;
+    };
   }, [navigate]);
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-ink-900 px-6">
       <div className="w-full max-w-sm rounded-sm bg-white p-7 text-center paper-shadow">
+        <div className="mb-3">
+          <Link to="/" className="font-body text-xs font-medium text-ink-600 ink-underline">
+            Back to Home
+          </Link>
+        </div>
         <img src="/logo.png" alt="Veritas Prep" className="mx-auto h-12 w-12" />
         {status === "checking" && (
           <p className="mt-6 font-body text-sm text-ink-400">Verifying your email…</p>

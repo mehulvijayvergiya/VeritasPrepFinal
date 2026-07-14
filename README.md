@@ -1,140 +1,218 @@
 # Veritas Prep
 
-A full-stack admissions consulting platform: a marketing site, a student
-application form, and a password-protected reviewer dashboard.
+Veritas Prep is a full-stack admissions workflow app with a public marketing site,
+student accounts, PDF-based submission intake, credits, meeting scheduling, and an
+admin dashboard for managing the full review process.
 
-```
+```text
 veritas-prep/
-├── client/     React + Vite + Tailwind frontend
-├── server/     Express API + JSON file database
+├── client/     React + Vite frontend
+├── server/     Express API + LowDB + Supabase integration
 └── README.md
 ```
 
-## What's included
+## Current product surface
 
-- **Landing page** — hero, about, services, FAQ, CTA
-- **Application form** (`/apply`) — students submit name, email, target
-  colleges, essay, activities list, and notes, with server-side validation
-- **Confirmation page** shown after a successful submission
-- **Reviewer sign-in** (`/admin/login`) — JWT-based auth
-- **Reviewer dashboard** (`/admin`) — list all submissions, filter by status,
-  read the full essay/activities/notes, set status (pending / in review /
-  completed), and leave reviewer notes
-- **API** — `POST /api/submissions` (public), `GET/PATCH /api/submissions`
-  and `/api/submissions/:id` (protected), `POST /api/auth/login`
+- Public landing page, FAQ, pricing, and contact page
+- Student signup/login with Supabase auth
+- Student dashboard with profile stats, submissions, meetings, and feedback view
+- Submission intake for:
+  - Activity list review
+  - Short essay review
+  - Medium essay review
+  - Long essay / Common App review
+  - 15-minute meeting request
+- PDF upload support for written submissions
+- Admin dashboard for:
+  - submission review
+  - credits approval
+  - meeting slot creation and booking review
+  - student roster and history
+  - direct PDF download
+- Credits deducted only when services are approved
+- Student rescheduling for meetings
 
 ## Tech stack
 
-- **Frontend:** React 18, React Router, Tailwind CSS, Vite
-- **Backend:** Node.js, Express, JWT (`jsonwebtoken`), `bcryptjs`
-- **Database:** [lowdb](https://github.com/typicat/lowdb) — a JSON-file
-  database. No native build step, no external service to set up. Good for
-  an MVP; see "Growing past the MVP" below for swapping in Postgres/Mongo
-  later without touching the frontend.
+- Frontend: React, React Router, Vite, Tailwind CSS
+- Backend: Node.js, Express, JWT auth for admin
+- Auth: Supabase Auth for students
+- Data:
+  - Supabase for student accounts/profiles and storage
+  - LowDB JSON file for admin-side operational state still stored locally
+- File storage: Supabase Storage
 
-## Quick start (local development)
+## Local development
 
-You'll need Node.js 18+ installed.
+You need Node.js 18+.
 
 ### 1. Backend
 
 ```bash
 cd server
 npm install
-cp .env.example .env
 ```
 
-Open `.env` and set:
-- `JWT_SECRET` — any long random string (this signs admin login sessions)
-- `ADMIN_EMAIL` / `ADMIN_PASSWORD` — your reviewer login. These are only
-  used to seed the first admin account on the very first run.
+Create `server/.env` from `server/.env.example`, then set at minimum:
+
+- `JWT_SECRET`
+- `ADMIN_EMAIL`
+- `ADMIN_PASSWORD`
+- `SUPABASE_URL`
+- `SUPABASE_SERVICE_ROLE_KEY`
+- `CLIENT_ORIGIN=http://localhost:5173`
+
+Run:
 
 ```bash
 npm run dev
 ```
 
-The API runs at `http://localhost:4000`. A `veritas.json` file is created
-automatically in `server/` on first run — this is your database.
+The API runs on `http://localhost:4000`.
 
 ### 2. Frontend
-
-In a second terminal:
 
 ```bash
 cd client
 npm install
+```
+
+Create `client/.env` from `client/.env.example`, then set:
+
+- `VITE_SUPABASE_URL`
+- `VITE_SUPABASE_ANON_KEY`
+- optional: `VITE_SITE_URL`
+
+Run:
+
+```bash
 npm run dev
 ```
 
-The site runs at `http://localhost:5173`. The Vite dev server proxies
-`/api/*` requests to `http://localhost:4000`, so both must be running.
+The app runs on `http://localhost:5173` and proxies `/api/*` to `http://localhost:4000`.
 
-### 3. Try it out
+## Free hosting walkthrough
 
-- Visit `http://localhost:5173` and click **Submit Your Application**
-- Fill out and submit the form
-- Visit `http://localhost:5173/admin/login` and sign in with the
-  `ADMIN_EMAIL` / `ADMIN_PASSWORD` you set in `server/.env`
-- You'll see the submission in the dashboard — click it, change its status,
-  add reviewer notes, and save
+The simplest free-ish setup for this app is:
 
-## Deployment
+1. Frontend on Netlify
+2. Backend on Render
+3. Auth/storage on Supabase
 
-### Frontend → Vercel or Netlify
+This keeps the React app static, the API separate, and avoids forcing everything into one host.
 
-```bash
-cd client
-npm run build
+### Recommended deployment layout
+
+- Frontend: Netlify free plan
+- Backend: Render free web service
+- Database/auth/storage: Supabase free plan
+
+### Step 1. Prepare Supabase
+
+In Supabase, make sure you have:
+
+1. The `profiles` and `submissions` tables set up as your app expects.
+2. Storage bucket for student submissions.
+3. Auth redirect URLs configured:
+   - `http://localhost:5173/student/verify`
+   - `http://localhost:5173/student/reset-password`
+   - your production frontend URLs, for example:
+     - `https://your-site.netlify.app/student/verify`
+     - `https://your-site.netlify.app/student/reset-password`
+
+### Step 2. Deploy backend to Render
+
+Create a new Render Web Service and point it at the repo.
+
+Use these settings:
+
+- Root directory: `server`
+- Build command: `npm install`
+- Start command: `npm start`
+
+Set these environment variables in Render:
+
+- `NODE_ENV=production`
+- `PORT=10000`
+- `CLIENT_ORIGIN=https://your-site.netlify.app`
+- `JWT_SECRET=your-long-random-secret`
+- `ADMIN_EMAIL=your-admin-email`
+- `ADMIN_PASSWORD=your-admin-password`
+- `SUPABASE_URL=...`
+- `SUPABASE_SERVICE_ROLE_KEY=...`
+- optional later: `RESEND_API_KEY`
+- optional later: `EMAIL_FROM`
+- optional later: `BUSINESS_EMAIL`
+
+Important:
+
+- Render free web services can sleep when idle.
+- Your app still uses `server/veritas.json` for some operational state.
+- On free hosting, local disk is not reliable long-term. Before real launch, migrate LowDB-managed data to Supabase/Postgres if you need durable production data.
+
+### Step 3. Deploy frontend to Netlify
+
+Create a new Netlify site from the same repo.
+
+Use these settings:
+
+- Base directory: `client`
+- Build command: `npm run build`
+- Publish directory: `dist`
+
+Set these environment variables in Netlify:
+
+- `VITE_SUPABASE_URL=...`
+- `VITE_SUPABASE_ANON_KEY=...`
+- `VITE_SITE_URL=https://your-site.netlify.app`
+
+After deploy, update the backend Render env:
+
+- `CLIENT_ORIGIN=https://your-site.netlify.app`
+
+### Step 4. Point frontend API calls at your backend
+
+For local development, Vite proxies `/api` to `localhost:4000`.
+
+For production, you need one of these approaches:
+
+1. Put frontend and backend behind the same domain/proxy.
+2. Add a Netlify redirect rule from `/api/*` to your Render backend.
+
+Example Netlify redirect:
+
+```text
+/api/*  https://your-render-service.onrender.com/api/:splat  200
 ```
 
-This outputs a static `dist/` folder. Deploy it to Vercel or Netlify as you
-would any Vite app. Set an environment variable or rewrite rule so `/api/*`
-requests are proxied to your deployed backend URL (both platforms support
-this via `vercel.json` rewrites or Netlify's `_redirects` file).
+This is included in the `_redirects` file added under `client/public/`.
 
-### Backend → Render or Fly.io
+### Step 5. Final pre-launch checks
 
-1. Push the `server/` folder to its own repo (or deploy the monorepo and
-   point the platform at `server/` as the root directory)
-2. Set the environment variables from `.env.example` in your platform's
-   dashboard: `JWT_SECRET`, `ADMIN_EMAIL`, `ADMIN_PASSWORD`, and
-   `CLIENT_ORIGIN` (your deployed frontend URL, so CORS allows it)
-3. Start command: `npm start`
+Before going live, verify:
 
-**Important:** `veritas.json` lives on the server's local disk. Render and
-Fly.io both reset local disk on redeploy unless you attach a persistent
-volume — do that, or migrate to a real database (see below) before you have
-real student data you can't afford to lose.
+1. Student signup and verification work from the deployed frontend URL.
+2. Student password reset works from the deployed frontend URL.
+3. Student can submit PDF-based services.
+4. Admin can log in and review submissions.
+5. Meeting slot creation and booking work.
+6. Student dashboard reflects updated statuses.
+7. Contact page works.
 
-## Growing past the MVP
+## Important production note
 
-The codebase is intentionally organized so you can swap pieces without a
-rewrite:
+The app currently blends Supabase-backed student data with LowDB-backed admin workflow state.
+That is acceptable for local testing, but not ideal for long-term hosting on a free container platform.
 
-- **Real database:** replace the contents of `server/config/db.js` and
-  `server/models/Submission.js` with a Postgres (e.g. via `pg` or Prisma)
-  or MongoDB (via Mongoose) implementation. The controllers and routes
-  don't know or care how `Submission.create/findAll/findById/updateStatus`
-  are implemented underneath.
-- **AI feedback:** the submission model already has a `status` and
-  `reviewer_notes` field. A natural next step is a background job that
-  calls an AI review endpoint when a submission is created and populates a
-  new `ai_feedback` field for the reviewer to start from — add it as a new
-  column/field and a new controller action, no schema migration tooling
-  required since it's a JSON store today.
-- **File uploads (PDF essays):** add `multer` to the Express app and a new
-  `POST /api/submissions/:id/attachment` route; store the file path on the
-  submission record.
-- **Email notifications:** call a transactional email provider (Resend,
-  Postmark, SendGrid) from inside `Submission.create` in
-  `submissionsController.js` after a successful save.
+Before relying on production data, move these LowDB-backed records into Supabase/Postgres:
+
+- appointments
+- appointment slots
+- credit requests
+- any remaining operational review metadata you care about preserving
 
 ## Design notes
 
-The visual identity is built around the pen-nib mark in the logo: navy ink,
-manuscript gold, and a warm parchment background, with a "marginalia"
-motif (the small italic notes beside the hero essay excerpt) standing in
-for the founder's actual review process — that's the one signature visual
-element, kept deliberately restrained everywhere else. Typefaces are
-Fraunces (display/serif), Public Sans (body), and IBM Plex Mono (labels
-and data), loaded from Google Fonts in `client/index.html`.
+The visual system uses parchment, ink navy, and manuscript gold with serif-forward typography
+to keep the product feeling editorial rather than generic SaaS. The dashboard intentionally stays
+plain and task-oriented so admin workflows remain easy to scan.

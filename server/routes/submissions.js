@@ -1,11 +1,13 @@
 import { Router } from "express";
 import { requireAuth } from "../middleware/auth.js";
+import { requireStudentAuth } from "../middleware/studentAuth.js";
 import { submitLimiter } from "../middleware/rateLimit.js";
 import { uploadPdf } from "../middleware/upload.js";
 import {
   createSubmission,
   listSubmissions,
   getSubmission,
+  getSubmissionDownloadUrl,
   updateSubmission,
   updateAnnotations,
   addComment,
@@ -15,14 +17,13 @@ import {
 
 const router = Router();
 
-// Public — a prospective student submitting their application materials.
-// The frontend only reaches this once logged in, but the endpoint itself
-// doesn't require the admin JWT (students don't have one).
-router.post("/", submitLimiter, uploadPdf.single("pdf"), createSubmission);
+// Student-authenticated submission flow.
+router.post("/", requireStudentAuth, submitLimiter, uploadPdf.single("pdf"), createSubmission);
 
 // Admin only
 router.get("/", requireAuth, listSubmissions);
 router.get("/:id", requireAuth, getSubmission);
+router.get("/:id/download-url", requireAuth, getSubmissionDownloadUrl);
 router.patch("/:id", requireAuth, updateSubmission);
 router.patch("/:id/annotations", requireAuth, updateAnnotations);
 router.post("/:id/comments", requireAuth, addComment);

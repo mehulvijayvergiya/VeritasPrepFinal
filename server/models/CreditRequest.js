@@ -1,6 +1,8 @@
 import { db } from "../config/db.js";
 import { Account } from "./Account.js";
 import { VC_TO_USD } from "../config/pricing.js";
+import { ProfileModel } from "./supabase/profileModel.js";
+import { Transaction } from "./Transaction.js";
 
 export const CreditRequest = {
   findAll() {
@@ -22,6 +24,8 @@ export const CreditRequest = {
       method,
       note: (note || "").trim(),
       status: "pending",
+      manual_email_sent: false,
+      manual_email_sent_at: null,
       created_at: new Date().toISOString(),
     };
     db.data.creditRequests.push(request);
@@ -36,6 +40,18 @@ export const CreditRequest = {
     request.resolved_at = new Date().toISOString();
     await db.write();
     await Account.addCredits(request.email, request.vc);
+    try {
+      await ProfileModel.adjustCreditsByEmail(request.email, request.vc);
+    } catch (err) {
+      console.warn("Unable to sync approved credits to profile:", err.message);
+    }
+    await Transaction.create({
+      email: request.email,
+      type: "credit_purchase",
+      amount: request.vc,
+      note: `${request.vc} VC approved via ${request.method}`,
+      status: "completed",
+    });
     return request;
   },
 
@@ -44,6 +60,15 @@ export const CreditRequest = {
     if (!request || request.status !== "pending") return null;
     request.status = "rejected";
     request.resolved_at = new Date().toISOString();
+    await db.write();
+    return request;
+  },
+
+  async updateManualEmail(id, manual_email_sent) {
+    const request = CreditRequest.findById(id);
+    if (!request) return null;
+    request.manual_email_sent = Boolean(manual_email_sent);
+    request.manual_email_sent_at = request.manual_email_sent ? new Date().toISOString() : null;
     await db.write();
     return request;
   },

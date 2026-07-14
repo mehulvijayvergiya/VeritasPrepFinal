@@ -44,6 +44,38 @@ export async function getStudentSession() {
   return data.session;
 }
 
+export async function completeEmailVerificationFromUrl() {
+  const url = new URL(window.location.href);
+  const code = url.searchParams.get("code");
+  const tokenHash = url.searchParams.get("token_hash");
+  const type = url.searchParams.get("type");
+
+  if (code) {
+    const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+    if (error) throw error;
+    return data.session;
+  }
+
+  if (tokenHash && type) {
+    const { data, error } = await supabase.auth.verifyOtp({ token_hash: tokenHash, type });
+    if (error) throw error;
+    return data.session;
+  }
+
+  if (window.location.hash.includes("access_token=")) {
+    const hash = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+    const access_token = hash.get("access_token");
+    const refresh_token = hash.get("refresh_token");
+    if (access_token && refresh_token) {
+      const { data, error } = await supabase.auth.setSession({ access_token, refresh_token });
+      if (error) throw error;
+      return data.session;
+    }
+  }
+
+  return getStudentSession();
+}
+
 export function onStudentAuthStateChange(callback) {
   const { data } = supabase.auth.onAuthStateChange((_event, session) => callback(session));
   return data.subscription;

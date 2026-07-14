@@ -1,4 +1,5 @@
 import { db } from "../config/db.js";
+import { ProfileModel } from "./supabase/profileModel.js";
 
 function makeReferralCode(email) {
   const base = email.split("@")[0].replace(/[^a-zA-Z0-9]/g, "").slice(0, 6).toUpperCase();
@@ -42,6 +43,35 @@ export const Account = {
     db.data.accounts.push(account);
     await db.write();
     return account;
+  },
+
+  async applyReferral(email, referredByCode) {
+    if (!referredByCode) return { applied: false, referrer: null };
+
+    const account = await Account.getOrCreate(email);
+    if (account.referred_by) {
+      return { applied: false, referrer: null, reason: "already-referred" };
+    }
+
+    let referrer = Account.findByReferralCode(referredByCode);
+    if (!referrer) {
+      const referrerProfile = await ProfileModel.getByReferralCode(referredByCode);
+      if (referrerProfile?.email) {
+        referrer = await Account.getOrCreate(referrerProfile.email);
+      }
+    }
+
+    if (!referrer) {
+      return { applied: false, referrer: null, reason: "invalid-code" };
+    }
+    if (referrer.email === account.email) {
+      return { applied: false, referrer: null, reason: "self-referral" };
+    }
+
+    account.referred_by = referrer.email;
+    referrer.credits += 1;
+    await db.write();
+    return { applied: true, referrer };
   },
 
   async addCredits(email, amount) {

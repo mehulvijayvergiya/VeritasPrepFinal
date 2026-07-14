@@ -31,8 +31,16 @@ async function request(path, { method = "GET", body, auth = false, token } = {})
   return data;
 }
 
-async function requestMultipart(path, formData) {
-  const res = await fetch(`${BASE}${path}`, { method: "POST", body: formData });
+async function requestMultipart(path, formData, { token, auth } = {}) {
+  const headers = {};
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  } else if (auth) {
+    const adminToken = getToken();
+    if (adminToken) headers.Authorization = `Bearer ${adminToken}`;
+  }
+
+  const res = await fetch(`${BASE}${path}`, { method: "POST", headers, body: formData });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
     const error = new Error(data.error || "Something went wrong.");
@@ -44,11 +52,12 @@ async function requestMultipart(path, formData) {
 }
 
 export const api = {
-  submitApplication: (formData) => requestMultipart("/submissions", formData),
+  submitApplication: (formData, options) => requestMultipart("/submissions", formData, options),
   adminLogin: (email, password) =>
     request("/auth/login", { method: "POST", body: { email, password } }),
   listSubmissions: () => request("/submissions", { auth: true }),
   getSubmission: (id) => request(`/submissions/${id}`, { auth: true }),
+  getSubmissionDownloadUrl: (id) => request(`/submissions/${id}/download-url`, { auth: true }),
   updateSubmission: (id, payload) =>
     request(`/submissions/${id}`, { method: "PATCH", body: payload, auth: true }),
   updateAnnotations: (id, annotations) =>
@@ -75,6 +84,26 @@ export const api = {
 
   // Student account (Supabase-authenticated)
   getStudentMe: (studentToken) => request("/students/me", { token: studentToken }),
+  getStudentProfile: (profileId) => request(`/students/profile/${profileId}`, { auth: true }),
+  getStudentRoster: () => request("/students/roster", { auth: true }),
+  updateStudentMe: (payload, studentToken) =>
+    request("/students/me", { method: "PATCH", body: payload, token: studentToken }),
+  getStudentSubmissions: (studentToken) => request("/students/submissions", { token: studentToken }),
+  getStudentTransactions: (studentToken) => request("/students/transactions", { token: studentToken }),
+  getStudentSubmissionDownloadUrl: (id, studentToken) =>
+    request(`/students/submissions/${id}/download-url`, { token: studentToken }),
+  getStudentAppointments: (studentToken) => request("/appointments/my", { token: studentToken }),
+  listMeetingSlots: () => request("/appointments/slots"),
+  listMeetingSlotsAdmin: () => request("/appointments/slots/admin", { auth: true }),
+  createMeetingSlot: (payload) => request("/appointments/slots", { method: "POST", body: payload, auth: true }),
+  deleteMeetingSlot: (id) => request(`/appointments/slots/${id}`, { method: "DELETE", auth: true }),
+  listAppointments: () => request("/appointments", { auth: true }),
+  createAppointment: (payload, studentToken) =>
+    request("/appointments", { method: "POST", body: payload, token: studentToken }),
+  rescheduleAppointment: (id, payload, studentToken) =>
+    request(`/appointments/${id}/reschedule`, { method: "PATCH", body: payload, token: studentToken }),
+  updateAppointmentStatus: (id, status) =>
+    request(`/appointments/${id}/status`, { method: "PATCH", body: { status }, auth: true }),
 };
 
 export function setToken(token) {

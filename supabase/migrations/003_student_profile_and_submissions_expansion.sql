@@ -9,6 +9,14 @@ alter table public.profiles
   add column if not exists phone_number text,
   add column if not exists gpa numeric(3, 2) check (gpa is null or (gpa >= 0 and gpa <= 5.0)),
   add column if not exists sat_score integer check (sat_score is null or (sat_score >= 400 and sat_score <= 1600)),
+  add column if not exists act_score integer check (act_score is null or (act_score >= 1 and act_score <= 36)),
+  add column if not exists graduation_year integer check (graduation_year is null or (graduation_year >= 2020 and graduation_year <= 2100)),
+  add column if not exists high_school text,
+  add column if not exists intended_major text,
+  add column if not exists ap_course_count integer check (ap_course_count is null or (ap_course_count >= 0 and ap_course_count <= 50)),
+  add column if not exists class_rank_percentile numeric(5, 2)
+    check (class_rank_percentile is null or (class_rank_percentile >= 0 and class_rank_percentile <= 100)),
+  add column if not exists extracurricular_summary text,
   add column if not exists target_colleges text[] not null default '{}';
 
 -- Let a student read/update their own profile directly if a future page

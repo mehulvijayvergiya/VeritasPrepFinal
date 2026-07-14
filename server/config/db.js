@@ -12,6 +12,9 @@ const defaultData = {
   admins: [],
   accounts: [],
   creditRequests: [],
+  transactions: [],
+  appointments: [],
+  appointmentSlots: [],
   nextSubmissionId: 1,
   nextCreditRequestId: 1,
 };
@@ -25,6 +28,9 @@ export async function initDb() {
   db.data.admins ||= [];
   db.data.accounts ||= [];
   db.data.creditRequests ||= [];
+  db.data.transactions ||= [];
+  db.data.appointments ||= [];
+  db.data.appointmentSlots ||= [];
   db.data.nextSubmissionId ||= 1;
   db.data.nextCreditRequestId ||= 1;
 

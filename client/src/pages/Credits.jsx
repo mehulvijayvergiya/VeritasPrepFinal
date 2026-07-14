@@ -10,13 +10,13 @@ const METHODS = [
   {
     key: "venmo",
     label: "Venmo",
-    handle: "@veritasprepconsulting",
+    handle: "@MehulVijayvergiya",
     color: "bg-[#008CFF]",
   },
   {
     key: "zelle",
     label: "Zelle",
-    handle: "veritasprepinfo@gmail.com",
+    handle: "m.vijay0922@gmail.com",
     color: "bg-[#6D1ED4]",
   },
 ];
@@ -26,7 +26,6 @@ function PurchaseForm({ prefillEmail }) {
   const [email, setEmail] = useState(prefillEmail || "");
   const [qty, setQty] = useState(5);
   const [method, setMethod] = useState("venmo");
-  const [referral, setReferral] = useState("");
   const [note, setNote] = useState("");
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
@@ -44,7 +43,7 @@ function PurchaseForm({ prefillEmail }) {
         email,
         amount_usd: usd,
         method,
-        note: `Referral: ${referral || "none"}. Note: ${note}`,
+        note,
       });
       setDone(true);
     } catch (err) {
@@ -65,7 +64,7 @@ function PurchaseForm({ prefillEmail }) {
           usually takes less than an hour during business hours.
         </p>
         <button
-          onClick={() => { setDone(false); setStep(1); setQty(5); setEmail(""); setNote(""); setReferral(""); }}
+          onClick={() => { setDone(false); setStep(1); setQty(5); setEmail(""); setNote(""); }}
           className="mt-6 font-body text-sm text-ink-900 underline"
         >
           Submit another purchase
@@ -131,20 +130,6 @@ function PurchaseForm({ prefillEmail }) {
                 </button>
               ))}
             </div>
-          </label>
-
-          <label className="block">
-            <span className="font-body text-sm font-medium text-ink-900">
-              Referral code{" "}
-              <span className="font-normal text-slate-500">(optional)</span>
-            </span>
-            <input
-              type="text"
-              value={referral}
-              onChange={(e) => setReferral(e.target.value.toUpperCase())}
-              placeholder="e.g. JSMITH-4K2X"
-              className="mt-2 w-full rounded-sm border border-hairline px-4 py-2.5 font-body text-sm uppercase tracking-wider focus:border-ink-900 focus:outline-none"
-            />
           </label>
 
           <button
@@ -326,16 +311,14 @@ export default function Credits() {
           )}
         </div>
 
-        {/* Referral callout */}
         <div className="mt-8 rounded-sm border border-gold-300 bg-gold-100/50 px-6 py-5">
-          <p className="font-display text-lg text-ink-900">Refer a friend, earn 1 VC.</p>
+          <p className="font-display text-lg text-ink-900">Credits are applied after approval.</p>
           <p className="mt-1.5 font-body text-sm text-ink-600">
-            Every student you refer who purchases credits earns you 1 free Veritas
-            Credit. Find your referral code and current balance in your{" "}
+            After you send payment, we approve the purchase manually and your updated balance will appear in your{" "}
             <Link to="/student/dashboard" className="font-medium text-ink-900 ink-underline">
               student dashboard
-            </Link>{" "}
-            after signing in.
+            </Link>
+            .
           </p>
         </div>
       </section>

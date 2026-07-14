@@ -38,6 +38,11 @@ export default function StudentResetPassword() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-ink-900 px-6">
       <div className="w-full max-w-sm">
+        <div className="mb-4 text-center">
+          <Link to="/" className="font-body text-xs font-medium text-white ink-underline">
+            Back to Home
+          </Link>
+        </div>
         <Link to="/" className="flex items-center justify-center gap-3">
           <img src="/logo.png" alt="Veritas Prep" className="h-12 w-12" />
         </Link>

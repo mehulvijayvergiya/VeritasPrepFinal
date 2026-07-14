@@ -8,6 +8,9 @@ import authRoutes from "./routes/auth.js";
 import studentsRoutes from "./routes/students.js";
 import submissionsRoutes from "./routes/submissions.js";
 import creditRequestsRoutes from "./routes/creditRequests.js";
+import appointmentsRoutes from "./routes/appointments.js";
+import accountsRoutes from "./routes/accounts.js";
+import transactionsRoutes from "./routes/transactions.js";
 
 validateEnv();
 
@@ -23,6 +26,9 @@ app.use("/api/auth", authRoutes);
 app.use("/api/students", studentsRoutes);
 app.use("/api/submissions", submissionsRoutes);
 app.use("/api/credit-requests", creditRequestsRoutes);
+app.use("/api/appointments", appointmentsRoutes);
+app.use("/api/accounts", accountsRoutes);
+app.use("/api/transactions", transactionsRoutes);
 
 // Centralized error handler (catches anything thrown synchronously in handlers)
 app.use((err, req, res, next) => {
@@ -31,7 +37,17 @@ app.use((err, req, res, next) => {
 });
 
 initDb().then(() => {
-  app.listen(PORT, () => {
+  const server = app.listen(PORT, () => {
     console.log(`Veritas Prep API running on http://localhost:${PORT}`);
+  });
+
+  server.on("error", (err) => {
+    if (err?.code === "EADDRINUSE") {
+      console.error(
+        `Port ${PORT} is already in use. Stop the existing process on port ${PORT}, then restart the server.`
+      );
+      process.exit(1);
+    }
+    throw err;
   });
 });

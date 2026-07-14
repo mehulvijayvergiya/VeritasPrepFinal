@@ -4,6 +4,7 @@ import Apply from "./pages/Apply.jsx";
 import Confirmation from "./pages/Confirmation.jsx";
 import Credits from "./pages/Credits.jsx";
 import Login from "./pages/Login.jsx";
+import Contact from "./pages/Contact.jsx";
 import AdminDashboard from "./pages/AdminDashboard.jsx";
 import ProtectedRoute from "./components/ProtectedRoute.jsx";
 import StudentRegister from "./pages/student/StudentRegister.jsx";
@@ -19,14 +20,11 @@ export default function App() {
       <Route path="/" element={<Landing />} />
       <Route
         path="/apply"
-        element={
-          <StudentProtectedRoute redirectTo="/student/register">
-            <Apply />
-          </StudentProtectedRoute>
-        }
+        element={<Apply />}
       />
       <Route path="/apply/confirmation" element={<Confirmation />} />
       <Route path="/credits" element={<Credits />} />
+      <Route path="/contact" element={<Contact />} />
 
       <Route path="/login" element={<Login />} />
       {/* Old separate login paths now redirect to the combined one */}

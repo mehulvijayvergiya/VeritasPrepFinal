@@ -25,3 +25,8 @@ npm-debug.log*
 .DS_Store
 .vscode/
 .idea/
+
+# Local duplicate repos / accidental files
+veritas-prep-final/
+veritas-prep-v3/
+server/{console.error(e)

@@ -16,7 +16,12 @@ export async function createCreditRequest(req, res) {
     return res.status(422).json({ error: "Choose a payment method." });
   }
 
-  const request = await CreditRequest.create({ email, amount_usd: amount, method, note });
+  const request = await CreditRequest.create({
+    email,
+    amount_usd: amount,
+    method,
+    note,
+  });
   res.status(201).json({ request });
 }
 

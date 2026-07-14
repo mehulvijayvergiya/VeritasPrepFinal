@@ -30,6 +30,7 @@ export default function Footer() {
             <p className="font-mono text-xs uppercase tracking-widest text-gold-300">Veritas Prep</p>
             <ul className="mt-3 space-y-2 text-sm text-ink-100/80">
               <li><Link to="/apply" className="ink-underline">Submit an application</Link></li>
+              <li><Link to="/contact" className="ink-underline">Contact us</Link></li>
             </ul>
           </div>
         </div>

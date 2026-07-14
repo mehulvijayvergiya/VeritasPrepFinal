@@ -3,7 +3,17 @@ import { db } from "../config/db.js";
 export const Transaction = {
   async list() {
     await db.read();
-    return db.data.transactions || [];
+    return [...(db.data.transactions || [])].sort(
+      (a, b) => new Date(b.created_at) - new Date(a.created_at)
+    );
+  },
+
+  async listByEmail(email) {
+    await db.read();
+    const normalized = (email || "").toLowerCase().trim();
+    return [...(db.data.transactions || [])]
+      .filter((item) => item.email?.toLowerCase().trim() === normalized)
+      .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
   },
 
   async create(payload) {

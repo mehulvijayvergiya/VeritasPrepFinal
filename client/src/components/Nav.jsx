@@ -76,6 +76,7 @@ export default function Nav() {
           <a href="/#services" className="ink-underline pb-1">Services</a>
           <a href="/#about" className="ink-underline pb-1">About</a>
           <a href="/#faq" className="ink-underline pb-1">FAQ</a>
+          <Link to="/contact" className="ink-underline pb-1">Contact</Link>
           <Link to="/credits" className="ink-underline pb-1">Credits</Link>
           {!session && <Link to="/login" className="ink-underline pb-1">Login</Link>}
         </nav>
@@ -135,6 +136,7 @@ export default function Nav() {
               <a href="/#services" className="block py-1.5">Services</a>
               <a href="/#about" className="block py-1.5">About</a>
               <a href="/#faq" className="block py-1.5">FAQ</a>
+              <Link to="/contact" className="block py-1.5">Contact</Link>
               <Link to="/credits" className="block py-1.5">Credits</Link>
               {session ? (
                 <>
