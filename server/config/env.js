@@ -25,9 +25,6 @@ export function validateEnv() {
     if (!process.env.CLIENT_ORIGIN) {
       errors.push("CLIENT_ORIGIN must be set explicitly in production (no localhost fallback).");
     }
-    if (!process.env.RESEND_API_KEY) {
-      errors.push("RESEND_API_KEY must be set in production — emails cannot silently dry-run.");
-    }
   }
 
   if (errors.length > 0) {
