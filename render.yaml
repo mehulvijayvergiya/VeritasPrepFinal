@@ -6,10 +6,6 @@ services:
     buildCommand: npm install
     startCommand: npm start
     plan: free
-    disk:
-      name: veritas-data
-      mountPath: /var/data
-      sizeGB: 1
     envVars:
       - key: NODE_ENV
         value: production
@@ -29,6 +25,5 @@ services:
         sync: false
       - key: BUSINESS_EMAIL
         sync: false
-      - key: DB_PATH
-        value: /var/data/veritas.json
-      
+      - key: RESEND_API_KEY
+        sync: false
