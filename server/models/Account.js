@@ -26,7 +26,7 @@ export const Account = {
 
     account = {
       email: normalized,
-      credits: 0,
+      credits: 1,
       referral_code: makeReferralCode(normalized),
       referred_by: null,
       created_at: new Date().toISOString(),

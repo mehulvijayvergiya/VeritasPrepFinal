@@ -26,7 +26,7 @@ begin
     new.id,
     new.email,
     new.raw_user_meta_data ->> 'full_name',
-    0,
+    1,
     public.make_referral_code(new.email)
   )
   on conflict (id) do nothing;

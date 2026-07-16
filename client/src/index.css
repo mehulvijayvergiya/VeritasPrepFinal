@@ -33,4 +33,45 @@
   .paper-shadow {
     box-shadow: 0 1px 2px rgba(11, 31, 59, 0.04), 0 12px 32px -12px rgba(11, 31, 59, 0.18);
   }
+
+  .marquee-shell {
+    overflow: hidden;
+    white-space: nowrap;
+    mask-image: linear-gradient(to right, transparent, black 8%, black 92%, transparent);
+    -webkit-mask-image: linear-gradient(to right, transparent, black 8%, black 92%, transparent);
+  }
+
+  .marquee-track {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    min-width: max-content;
+    animation: vp-marquee 30s linear infinite;
+  }
+
+  .marquee-track-reverse {
+    animation-direction: reverse;
+    animation-duration: 34s;
+  }
+
+  .marquee-chip {
+    border: 1px solid #d9d3c6;
+    background: #fff;
+    color: #1f2f45;
+    border-radius: 9999px;
+    padding: 0.36rem 0.7rem;
+    font-family: "Public Sans", sans-serif;
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+  }
+}
+
+@keyframes vp-marquee {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
 }

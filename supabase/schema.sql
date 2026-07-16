@@ -12,7 +12,7 @@ create table if not exists public.profiles (
   id uuid primary key references auth.users (id) on delete cascade,
   email text not null unique,
   full_name text,
-  credits numeric(10, 2) not null default 0,
+  credits numeric(10, 2) not null default 1,
   referral_code text unique,
   referred_by uuid references public.profiles (id),
   created_at timestamptz not null default now()

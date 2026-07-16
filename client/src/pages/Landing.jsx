@@ -3,6 +3,29 @@ import Nav from "../components/Nav.jsx";
 import Footer from "../components/Footer.jsx";
 import AnnotatedEssay from "../components/AnnotatedEssay.jsx";
 
+const TOP_COLLEGES = [
+  "Harvard",
+  "Yale",
+  "Princeton",
+  "Columbia",
+  "UPenn",
+  "Cornell",
+  "Dartmouth",
+  "Brown",
+  "Stanford",
+  "MIT",
+  "UChicago",
+  "Duke",
+  "Northwestern",
+  "Caltech",
+  "Johns Hopkins",
+  "Vanderbilt",
+  "Rice",
+  "Georgetown",
+  "UCLA",
+  "UC Berkeley",
+];
+
 const SERVICES = [
   {
     n: "Essay Review",
@@ -25,7 +48,7 @@ const SERVICES = [
 const FAQS = [
   {
     q: "Who reviews my application?",
-    a: "Every submission is read personally by our founder, a Cornell '30 Computer Science student who has spent years studying what actually moves an admissions committee — not a generic template or an algorithm.",
+    a: "Every submission is personally reviewed by our founder, Mehul Vijayvergiya, a Cornell '30 Computer Science student who has spent years studying what truly resonates with admissions committees—not relying on generic templates or algorithms.",
   },
   {
     q: "How long does feedback take?",
@@ -57,9 +80,7 @@ export default function Landing() {
           Stronger applications.
         </h1>
         <p className="mx-auto mt-6 max-w-md font-body text-lg leading-relaxed text-ink-600">
-          Better admissions outcomes start with the parts of your story you've
-          stopped noticing. We help you find them — then help you write them
-          well.
+          Our goal isn't to promise outcomes—it's to maximize your opportunities by helping you build the strongest, most authentic application possible. Through thoughtful strategy, honest feedback, and personalized guidance, we work to ensure every part of your application reflects your full potential.
         </p>
         <div className="mt-9 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
           <Link
@@ -74,6 +95,29 @@ export default function Landing() {
           >
             See what we review →
           </a>
+        </div>
+        <div className="mt-10 space-y-3 rounded-sm border border-hairline bg-white/60 px-3 py-3">
+          <p className="text-center font-mono text-[11px] uppercase tracking-widest text-gold-700">
+            Students targeting top colleges
+          </p>
+          <div className="marquee-shell">
+            <div className="marquee-track">
+              {[...TOP_COLLEGES, ...TOP_COLLEGES].map((name, idx) => (
+                <span key={`top-a-${idx}`} className="marquee-chip">
+                  {name}
+                </span>
+              ))}
+            </div>
+          </div>
+          <div className="marquee-shell">
+            <div className="marquee-track marquee-track-reverse">
+              {[...TOP_COLLEGES.slice().reverse(), ...TOP_COLLEGES.slice().reverse()].map((name, idx) => (
+                <span key={`top-b-${idx}`} className="marquee-chip">
+                  {name}
+                </span>
+              ))}
+            </div>
+          </div>
         </div>
       </section>
 
@@ -101,10 +145,7 @@ export default function Landing() {
           </div>
           <div className="max-w-prose space-y-5 font-body text-[1.05rem] leading-8 text-ink-600">
             <p>
-              Veritas Prep was started by a Cornell '30 Computer Science student who
-              spent his own admissions cycle rewriting the same essay eight times —
-              and learned, eventually, that the version admissions officers
-              responded to wasn't the most polished one. It was the truest one.
+              Veritas Prep was founded by Mehul Vijayvergiya, a Cornell '30 Computer Science student who spent his own admissions cycle rewriting his personal statement essay hundreds of times before realizing the version admissions officers responded to wasn't the most polished—it was the most authentic.
             </p>
             <p>
               That's the whole premise here: admissions isn't a checklist of
@@ -116,6 +157,11 @@ export default function Landing() {
               Every submission is read personally — no outsourced readers, no
               recycled comments. Just a close read from someone who studies this
               closely.
+            </p>
+            <p>
+              The goal is never a fake promise. The goal is to maximize the
+              quality, clarity, and honesty of your application so you are in
+              the strongest possible position for your best-fit schools.
             </p>
           </div>
         </div>
@@ -142,9 +188,7 @@ export default function Landing() {
       <section className="border-y border-hairline bg-ink-900">
         <div className="mx-auto max-w-3xl px-6 py-20 text-center">
           <p className="font-display text-2xl italic leading-relaxed text-white sm:text-3xl">
-            "The best essay I read all year wasn't about a triumph. It was about a
-            sourdough starter that kept failing — and what the writer learned from
-            letting it fail."
+            "The most compelling college essays aren't about extraordinary lives. They're about ordinary moments told with extraordinary honesty."
           </p>
           <p className="mt-6 font-mono text-xs uppercase tracking-widest text-gold-300">
             — Founder, Veritas Prep

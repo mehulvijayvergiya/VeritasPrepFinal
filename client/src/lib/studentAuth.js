@@ -1,6 +1,8 @@
 import { supabase } from "./supabaseClient.js";
 
-const SITE_URL = import.meta.env.VITE_SITE_URL || window.location.origin;
+function getSiteOrigin() {
+  return window.location.origin;
+}
 
 export async function registerStudent({ email, password, fullName }) {
   const { data, error } = await supabase.auth.signUp({
@@ -8,7 +10,7 @@ export async function registerStudent({ email, password, fullName }) {
     password,
     options: {
       data: { full_name: fullName },
-      emailRedirectTo: `${SITE_URL}/student/verify`,
+      emailRedirectTo: `${getSiteOrigin()}/student/verify`,
     },
   });
   if (error) throw error;
@@ -28,7 +30,7 @@ export async function logoutStudent() {
 
 export async function requestPasswordReset(email) {
   const { error } = await supabase.auth.resetPasswordForEmail(email, {
-    redirectTo: `${SITE_URL}/student/reset-password`,
+    redirectTo: `${getSiteOrigin()}/student/reset-password`,
   });
   if (error) throw error;
 }
