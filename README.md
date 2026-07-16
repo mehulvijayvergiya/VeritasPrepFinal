@@ -140,9 +140,14 @@ Set these environment variables in Render:
 - `ADMIN_PASSWORD=your-admin-password`
 - `SUPABASE_URL=...`
 - `SUPABASE_SERVICE_ROLE_KEY=...`
+- `DB_PATH=/var/data/veritas.json` (requires persistent disk; see below)
 - optional later: `RESEND_API_KEY`
 - optional later: `EMAIL_FROM`
 - optional later: `BUSINESS_EMAIL`
+
+Also attach a Render persistent disk and mount it at `/var/data` so LowDB-backed
+records (appointments, slots, credit request workflow data) survive restarts and
+redeploys.
 
 Important:
 

@@ -3,9 +3,16 @@ import { JSONFile } from "lowdb/node";
 import path from "path";
 import { fileURLToPath } from "url";
 import bcrypt from "bcryptjs";
+import { mkdirSync } from "fs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const dbPath = process.env.DB_PATH || path.join(__dirname, "..", "veritas.json");
+const serverRoot = path.join(__dirname, "..");
+const configuredDbPath = process.env.DB_PATH || "veritas.json";
+const dbPath = path.isAbsolute(configuredDbPath)
+  ? configuredDbPath
+  : path.resolve(serverRoot, configuredDbPath);
+
+mkdirSync(path.dirname(dbPath), { recursive: true });
 
 const defaultData = {
   submissions: [],
@@ -22,6 +29,7 @@ const adapter = new JSONFile(dbPath);
 export const db = new Low(adapter, defaultData);
 
 export async function initDb() {
+  console.log(`Using LowDB file at: ${dbPath}`);
   await db.read();
   db.data ||= structuredClone(defaultData);
   db.data.submissions ||= [];
