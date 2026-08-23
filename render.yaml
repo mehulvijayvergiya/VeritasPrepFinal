@@ -5,12 +5,18 @@ services:
     rootDir: server
     buildCommand: npm install
     startCommand: npm start
-    plan: free
+    plan: starter
+    disk:
+      name: veritas-prep-data
+      mountPath: /var/data
+      sizeGB: 1
     envVars:
       - key: NODE_ENV
         value: production
       - key: PORT
         value: 10000
+      - key: DB_PATH
+        value: /var/data/veritas.json
       - key: CLIENT_ORIGIN
         sync: false
       - key: JWT_SECRET

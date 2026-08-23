@@ -104,7 +104,7 @@ This keeps the React app static, the API separate, and avoids forcing everything
 ### Recommended deployment layout
 
 - Frontend: Netlify free plan
-- Backend: Render free web service
+- Backend: Render starter web service
 - Database/auth/storage: Supabase free plan
 
 ### Step 1. Prepare Supabase
@@ -151,9 +151,9 @@ redeploys.
 
 Important:
 
-- Render free web services can sleep when idle.
+- The backend must run on a paid Render web service because persistent disks are not available on the free plan.
 - Your app still uses `server/veritas.json` for some operational state.
-- On free hosting, local disk is not reliable long-term. Before real launch, migrate LowDB-managed data to Supabase/Postgres if you need durable production data.
+- Before real launch, migrate LowDB-managed data to Supabase/Postgres if you need fully durable production data beyond a single app instance.
 
 ### Step 3. Deploy frontend to Netlify
 
