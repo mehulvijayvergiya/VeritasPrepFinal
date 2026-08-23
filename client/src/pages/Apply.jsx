@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import Nav from "../components/Nav.jsx";
 import Footer from "../components/Footer.jsx";
 import { api } from "../lib/api.js";
+import { formatMeetingDateTime } from "../lib/meetingTime.js";
 import { SERVICES } from "../lib/pricing.js";
 import { getStudentSession } from "../lib/studentAuth.js";
 
@@ -419,7 +420,7 @@ export default function Apply() {
                             <option value="">Select an available slot</option>
                             {meetingSlots.map((slot) => (
                               <option key={slot.id} value={slot.id}>
-                                {slot.date} at {slot.time}
+                                {formatMeetingDateTime(slot.date, slot.time)}
                               </option>
                             ))}
                           </select>

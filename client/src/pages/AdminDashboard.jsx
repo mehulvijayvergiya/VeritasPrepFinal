@@ -1,6 +1,7 @@
 import { useEffect, useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { api, clearToken } from "../lib/api.js";
+import { formatMeetingDateTime } from "../lib/meetingTime.js";
 import { VC_TO_USD } from "../lib/pricing.js";
 
 // ─── Status helpers ──────────────────────────────────────────────────────────
@@ -543,7 +544,7 @@ function AppointmentsTab({ onOpenStudentProfile }) {
           <div key={slot.id} className="flex flex-wrap items-center justify-between gap-4 px-6 py-4">
             <div>
               <p className="font-body text-sm text-ink-900">
-                {slot.date} at {slot.time}
+                {formatMeetingDateTime(slot.date, slot.time)}
               </p>
               {slot.bookedAppointment ? (
                 <p className="mt-0.5 font-body text-xs text-slate-500">
@@ -624,7 +625,10 @@ function AppointmentsTab({ onOpenStudentProfile }) {
                 ) : null}
                 <p className="mt-0.5 font-body text-xs text-slate-500">{appointment.studentEmail}</p>
                 <p className="mt-0.5 font-body text-xs text-slate-500">
-                  {appointment.slot?.date || appointment.date} at {appointment.slot?.time || appointment.time}
+                  {formatMeetingDateTime(
+                    appointment.slot?.date || appointment.date,
+                    appointment.slot?.time || appointment.time
+                  )}
                 </p>
                 {appointment.note && (
                   <p className="mt-1 font-body text-xs text-slate-500">{appointment.note}</p>
@@ -864,7 +868,7 @@ function StudentsTab({ onOpenStudentProfile, onLoadedCount }) {
                       <div key={appt.id} className="rounded-sm border border-hairline bg-parchment p-3">
                         <div className="flex items-center justify-between gap-2">
                           <p className="font-body text-sm text-ink-900">
-                            {appt.slot?.date || appt.date} at {appt.slot?.time || appt.time}
+                            {formatMeetingDateTime(appt.slot?.date || appt.date, appt.slot?.time || appt.time)}
                           </p>
                           <Badge
                             label={appt.status}

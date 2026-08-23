@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { SERVICES as SERVICE_OPTIONS } from "../lib/pricing.js";
 import { api } from "../lib/api.js";
+import { formatMeetingDateTime } from "../lib/meetingTime.js";
 
 const STATUS_OPTIONS = ["pending", "confirmed", "completed"];
 
@@ -147,7 +148,7 @@ export default function SharedSchedule({ mode = "student", profile = null }) {
                   {appointment.studentName || "Student"} • {formatServiceLabel(appointment.service)}
                 </p>
                 <p className="mt-1 font-body text-sm text-slate-600">
-                  {appointment.date} at {appointment.time}
+                  {formatMeetingDateTime(appointment.date, appointment.time)}
                 </p>
                 {appointment.note && (
                   <p className="mt-2 font-body text-sm text-slate-500">{appointment.note}</p>

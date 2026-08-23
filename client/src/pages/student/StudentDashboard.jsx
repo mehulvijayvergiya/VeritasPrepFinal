@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { getStudentSession, logoutStudent } from "../../lib/studentAuth.js";
 import { api } from "../../lib/api.js";
+import { formatMeetingDateTime } from "../../lib/meetingTime.js";
 
 function toNumberOrNull(value) {
   if (value === "" || value === null || value === undefined) return null;
@@ -534,7 +535,7 @@ export default function StudentDashboard() {
               {appointments.map((appt) => (
                 <div key={appt.id} className="rounded-sm border border-hairline bg-parchment p-4">
                   <p className="font-body text-sm font-medium text-ink-900">
-                    {appt.slot?.date || appt.date} at {appt.slot?.time || appt.time}
+                    {formatMeetingDateTime(appt.slot?.date || appt.date, appt.slot?.time || appt.time)}
                   </p>
                   <p className="mt-1 font-body text-xs text-slate-500">Status: {appt.status}</p>
                   {appt.note && <p className="mt-1 font-body text-xs text-slate-500">{appt.note}</p>}
@@ -551,7 +552,7 @@ export default function StudentDashboard() {
                         <option value="">Choose a new slot</option>
                         {availableSlots.map((slot) => (
                           <option key={slot.id} value={slot.id}>
-                            {slot.date} at {slot.time}
+                            {formatMeetingDateTime(slot.date, slot.time)}
                           </option>
                         ))}
                       </select>
