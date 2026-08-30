@@ -429,6 +429,9 @@ export default function Apply() {
                               No meeting slots are currently available.
                             </p>
                           )}
+                          <p className="mt-1 font-body text-xs text-slate-500">
+                            If you do not see an available appointment please contact veritasprepinfo@gmail.com to schedule your 15 min 1:1 meeting.
+                          </p>
                         </label>
                       )}
 
