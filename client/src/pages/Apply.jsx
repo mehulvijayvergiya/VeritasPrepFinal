@@ -289,6 +289,9 @@ export default function Apply() {
         <p className="mt-2 font-body text-sm text-slate-500">
           Each item below includes a required checklist so every submission is complete before we review it.
         </p>
+        <p className="mt-2 font-body text-sm text-slate-500">
+          If you do not see an available appointment please contact veritasprepinfo@gmail.com to schedule your 15 min 1:1 meeting.
+        </p>
 
         {loadingProfile ? (
           <p className="mt-8 font-body text-sm text-ink-400">Loading your account…</p>
@@ -358,9 +361,6 @@ export default function Apply() {
                   );
                 })}
               </div>
-              <p className="mt-2 font-body text-xs text-slate-500">
-                If you do not see an available appointment please contact veritasprepinfo@gmail.com to schedule your 15 min 1:1 meeting.
-              </p>
             </div>
 
             {/* Cart */}
@@ -429,7 +429,7 @@ export default function Apply() {
                           </select>
                           {meetingSlots.length === 0 && (
                             <p className="mt-1 font-body text-xs text-slate-500">
-                              No meeting slots are currently available.
+                              No meeting slots are currently available. If you do not see an available appointment please contact veritasprepinfo@gmail.com to schedule your 15 min 1:1 meeting.
                             </p>
                           )}
                         </label>
