@@ -26,9 +26,9 @@ export function me(req, res) {
   });
 }
 
-export function mySubmissions(req, res) {
+export async function mySubmissions(req, res) {
   const { profile } = req.student;
-  const submissions = Submission.listByProfile(profile.id);
+  const submissions = await Submission.listByProfile(profile.id, profile.email);
   res.json({ submissions });
 }
 
@@ -71,7 +71,7 @@ export async function getStudentRosterAdmin(req, res) {
   try {
     const [profiles, allSubmissions, allAppointments] = await Promise.all([
       ProfileModel.listAll(),
-      Promise.resolve(Submission.findAll()),
+      Submission.findAll(),
       Appointment.list(),
     ]);
 

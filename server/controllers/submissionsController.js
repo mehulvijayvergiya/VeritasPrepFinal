@@ -233,12 +233,13 @@ export async function createSubmission(req, res) {
   res.status(201).json({ submission });
 }
 
-export function listSubmissions(req, res) {
-  res.json({ submissions: Submission.findAll() });
+export async function listSubmissions(req, res) {
+  const submissions = await Submission.findAll();
+  res.json({ submissions });
 }
 
-export function getSubmission(req, res) {
-  const submission = Submission.findById(req.params.id);
+export async function getSubmission(req, res) {
+  const submission = await Submission.findById(req.params.id);
   if (!submission) return res.status(404).json({ error: "Submission not found." });
   res.json({ submission });
 }
@@ -246,7 +247,7 @@ export function getSubmission(req, res) {
 export async function updateSubmission(req, res) {
   const { status, reviewer_notes, payment_verified, manual_email_sent } = req.body;
   try {
-    const existing = Submission.findById(req.params.id);
+    const existing = await Submission.findById(req.params.id);
     if (!existing) return res.status(404).json({ error: "Submission not found." });
 
     const nextStatus = status || existing.status;
@@ -305,7 +306,7 @@ export async function updateSubmission(req, res) {
 }
 
 export async function getSubmissionDownloadUrl(req, res) {
-  const submission = Submission.findById(req.params.id);
+  const submission = await Submission.findById(req.params.id);
   if (!submission) return res.status(404).json({ error: "Submission not found." });
   if (!submission.attachment_storage_path) {
     return res.status(404).json({ error: "No uploaded PDF found for this submission." });
@@ -326,7 +327,7 @@ export async function getSubmissionDownloadUrl(req, res) {
 }
 
 export async function getMySubmissionDownloadUrl(req, res) {
-  const submission = Submission.findById(req.params.id);
+  const submission = await Submission.findById(req.params.id);
   if (!submission) return res.status(404).json({ error: "Submission not found." });
   if (!submissionBelongsToStudent(submission, req.student?.profile)) {
     return res.status(403).json({ error: "You do not have access to this submission." });

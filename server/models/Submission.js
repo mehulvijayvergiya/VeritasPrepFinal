@@ -22,6 +22,9 @@ function formatSubmissionTitle(name, serviceLabel, serviceKey) {
 }
 
 function hydrateSubmission(submission) {
+  if (!submission.attachment_storage_path && submission.attachment_path) {
+    submission.attachment_storage_path = submission.attachment_path;
+  }
   if (!submission.submission_title) {
     submission.submission_title = formatSubmissionTitle(
       submission.name,
@@ -31,6 +34,60 @@ function hydrateSubmission(submission) {
   }
   submission.submission_checklist = normalizeChecklist(submission.submission_checklist || []);
   return submission;
+}
+
+function mapSupabaseSubmission(row) {
+  return hydrateSubmission({
+    ...row,
+    attachment_storage_path: row.attachment_storage_path || row.attachment_path || null,
+  });
+}
+
+function getSubmissionId(submission) {
+  return Number(submission?.id);
+}
+
+function recalcNextSubmissionId() {
+  const maxId = db.data.submissions.reduce((max, item) => {
+    const id = getSubmissionId(item);
+    return Number.isFinite(id) && id > max ? id : max;
+  }, 0);
+  db.data.nextSubmissionId = maxId + 1;
+}
+
+async function refreshSubmissionsFromSupabase() {
+  const supabase = getSupabase();
+  const { data, error } = await supabase
+    .from("submissions")
+    .select("*")
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    throw new Error(error.message || "Unable to load submissions from Supabase.");
+  }
+
+  const mergedById = new Map();
+  for (const local of db.data.submissions) {
+    const id = getSubmissionId(local);
+    if (Number.isFinite(id)) {
+      mergedById.set(id, hydrateSubmission(local));
+    }
+  }
+  for (const remote of data || []) {
+    const mapped = mapSupabaseSubmission(remote);
+    const id = getSubmissionId(mapped);
+    if (Number.isFinite(id)) {
+      const existing = mergedById.get(id);
+      mergedById.set(id, existing ? { ...existing, ...mapped } : mapped);
+    }
+  }
+
+  db.data.submissions = [...mergedById.values()].sort(
+    (a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0)
+  );
+  recalcNextSubmissionId();
+  await db.write();
+  return db.data.submissions;
 }
 
 async function syncSubmissionToSupabase(submission) {
@@ -101,6 +158,12 @@ export const Submission = {
     attachment_storage_path,
     attachment_url,
   }) {
+    try {
+      await refreshSubmissionsFromSupabase();
+    } catch (err) {
+      console.warn("Proceeding with local submission cache:", err.message);
+    }
+
     const now = new Date().toISOString();
     const submission = {
       id: db.data.nextSubmissionId++,
@@ -147,20 +210,42 @@ export const Submission = {
     return submission;
   },
 
-  findAll() {
-    return db.data.submissions.map(hydrateSubmission).sort(
-      (a, b) => new Date(b.created_at) - new Date(a.created_at)
-    );
+  async findAll() {
+    try {
+      return await refreshSubmissionsFromSupabase();
+    } catch {
+      return db.data.submissions.map(hydrateSubmission).sort(
+        (a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0)
+      );
+    }
   },
 
-  findById(id) {
-    const submission = db.data.submissions.find((s) => s.id === Number(id));
+  async findById(id) {
+    try {
+      await refreshSubmissionsFromSupabase();
+    } catch {
+      // Fall back to local cache.
+    }
+
+    const submissionId = Number(id);
+    const submission = db.data.submissions.find((s) => Number(s.id) === submissionId);
     return submission ? hydrateSubmission(submission) : null;
   },
 
-  listByProfile(profileId) {
+  async listByProfile(profileId, profileEmail) {
+    try {
+      await refreshSubmissionsFromSupabase();
+    } catch {
+      // Fall back to local cache.
+    }
+
+    const normalizedEmail = (profileEmail || "").toLowerCase().trim();
     return db.data.submissions
-      .filter((s) => s.profile_id === profileId)
+      .filter((s) => {
+        if (profileId && s.profile_id === profileId) return true;
+        if (!normalizedEmail || !s.email) return false;
+        return s.email.toLowerCase() === normalizedEmail;
+      })
       .map(hydrateSubmission)
       .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
   },
@@ -176,7 +261,7 @@ export const Submission = {
     manual_email_sent,
     manual_email_sent_at,
   }) {
-    const submission = Submission.findById(id);
+    const submission = await Submission.findById(id);
     if (!submission) return null;
     if (status && !VALID_STATUSES.includes(status)) {
       throw new Error(`Invalid status. Must be one of: ${VALID_STATUSES.join(", ")}`);
@@ -214,7 +299,7 @@ export const Submission = {
   },
 
   async updateAnnotations(id, annotations) {
-    const submission = Submission.findById(id);
+    const submission = await Submission.findById(id);
     if (!submission) return null;
     if (!Array.isArray(annotations)) {
       throw new Error("Annotations must be an array.");
@@ -245,7 +330,7 @@ export const Submission = {
   },
 
   async addComment(id, text) {
-    const submission = Submission.findById(id);
+    const submission = await Submission.findById(id);
     if (!submission) return null;
     if (!text || !text.trim()) {
       throw new Error("Comment text is required.");
@@ -263,7 +348,7 @@ export const Submission = {
   },
 
   async deleteComment(id, commentId) {
-    const submission = Submission.findById(id);
+    const submission = await Submission.findById(id);
     if (!submission) return null;
     submission.comments = submission.comments.filter((c) => c.id !== commentId);
     submission.updated_at = new Date().toISOString();
@@ -273,7 +358,7 @@ export const Submission = {
   },
 
   async markFeedbackSent(id) {
-    const submission = Submission.findById(id);
+    const submission = await Submission.findById(id);
     if (!submission) return null;
     submission.feedback_sent_at = new Date().toISOString();
     submission.updated_at = new Date().toISOString();
