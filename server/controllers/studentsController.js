@@ -1,6 +1,7 @@
 import { Submission } from "../models/Submission.js";
 import { Appointment } from "../models/Appointment.js";
 import { Transaction } from "../models/Transaction.js";
+import { CreditRequest } from "../models/CreditRequest.js";
 import { ProfileModel } from "../models/supabase/profileModel.js";
 import jwt from "jsonwebtoken";
 
@@ -157,6 +158,7 @@ export async function getStudentProfileAdmin(req, res) {
 export async function getStudentRosterAdmin(req, res) {
   try {
     const profiles = await ProfileModel.listAll();
+    await CreditRequest.backfillApprovedTransactions();
     await Promise.all(
       profiles.map((profile) =>
         Submission.recoverFromStorageForProfile({
@@ -171,8 +173,13 @@ export async function getStudentRosterAdmin(req, res) {
       Submission.findAll(),
       Appointment.list(),
     ]);
+    const [allTransactions, allCreditRequests] = await Promise.all([
+      Transaction.list(),
+      Promise.resolve(CreditRequest.findAll()),
+    ]);
 
     const roster = profiles.map((profile) => {
+      const normalizedEmail = (profile.email || "").toLowerCase().trim();
       const submissions = allSubmissions.filter((item) => {
         if (profile.id && item.profile_id === profile.id) return true;
         return item.email && profile.email && item.email.toLowerCase() === profile.email.toLowerCase();
@@ -186,6 +193,18 @@ export async function getStudentRosterAdmin(req, res) {
           item.studentEmail.toLowerCase() === profile.email.toLowerCase()
         );
       });
+
+      const creditTransactions = allTransactions
+        .filter((item) => {
+          return (item.email || "").toLowerCase().trim() === normalizedEmail;
+        })
+        .sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+
+      const creditRequests = allCreditRequests
+        .filter((item) => {
+          return (item.email || "").toLowerCase().trim() === normalizedEmail;
+        })
+        .sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
 
       const submissionCounts = submissions.reduce(
         (acc, item) => {
@@ -244,6 +263,8 @@ export async function getStudentRosterAdmin(req, res) {
         },
         recent_submissions: recentSubmissions,
         appointment_history: appointmentHistory,
+        credit_transactions: creditTransactions,
+        credit_requests: creditRequests,
       };
     });
 

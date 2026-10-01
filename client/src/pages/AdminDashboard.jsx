@@ -992,6 +992,51 @@ function StudentsTab({ onOpenStudentProfile, onLoadedCount, onViewAsStudent }) {
                 </div>
               )}
             </div>
+
+            <div className="mt-6 rounded-sm border border-hairline bg-white p-5">
+              <h3 className="font-display text-lg text-ink-900">Credit transaction history</h3>
+              {selected.credit_transactions?.length === 0 && (
+                <p className="mt-3 font-body text-sm text-slate-500">No credit transactions yet.</p>
+              )}
+              {selected.credit_transactions?.length > 0 && (
+                <div className="mt-3 space-y-3">
+                  {selected.credit_transactions.map((entry) => (
+                    <div key={entry.id} className="rounded-sm border border-hairline bg-parchment p-3">
+                      <div className="flex items-center justify-between gap-3">
+                        <p className="font-body text-sm text-ink-900">{entry.note || entry.type}</p>
+                        <p className={`font-body text-sm font-medium ${Number(entry.amount) >= 0 ? "text-emerald-700" : "text-red-700"}`}>
+                          {Number(entry.amount) >= 0 ? "+" : ""}{entry.amount} VC
+                        </p>
+                      </div>
+                      <p className="mt-1 font-body text-xs text-slate-500">
+                        {entry.created_at ? new Date(entry.created_at).toLocaleString() : "—"} · {entry.status || "completed"}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <h4 className="mt-5 font-mono text-[11px] uppercase tracking-widest text-slate-500">Purchase requests</h4>
+              {selected.credit_requests?.length === 0 && (
+                <p className="mt-2 font-body text-sm text-slate-500">No purchase requests yet.</p>
+              )}
+              {selected.credit_requests?.length > 0 && (
+                <div className="mt-2 space-y-2">
+                  {selected.credit_requests.map((entry) => (
+                    <div key={`request-${entry.id}`} className="rounded-sm border border-hairline bg-white p-3">
+                      <div className="flex items-center justify-between gap-3">
+                        <p className="font-body text-sm text-ink-900">{entry.vc} VC · ${entry.amount_usd} via {entry.method}</p>
+                        <Badge label={entry.status} style={CR_STYLE[entry.status] || "bg-slate-100 text-slate-600"} />
+                      </div>
+                      <p className="mt-1 font-body text-xs text-slate-500">
+                        Requested {entry.created_at ? new Date(entry.created_at).toLocaleString() : "—"}
+                        {entry.resolved_at ? ` · Resolved ${new Date(entry.resolved_at).toLocaleString()}` : ""}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         )}
       </main>

@@ -4,6 +4,36 @@ import { VC_TO_USD } from "../config/pricing.js";
 import { ProfileModel } from "./supabase/profileModel.js";
 import { Transaction } from "./Transaction.js";
 
+function normalizeEmail(value) {
+  return (value || "").toLowerCase().trim();
+}
+
+function hasMatchingTransaction(transactions, request) {
+  const targetEmail = normalizeEmail(request.email);
+  const targetAmount = Number(request.vc);
+  const targetResolvedAt = request.resolved_at ? new Date(request.resolved_at).getTime() : null;
+
+  for (const entry of transactions) {
+    if (normalizeEmail(entry.email) !== targetEmail) continue;
+    if (entry.type !== "credit_purchase") continue;
+    if (Number(entry.amount) !== targetAmount) continue;
+
+    const note = (entry.note || "").toLowerCase();
+    if (note.includes(`request #${request.id}`)) {
+      return true;
+    }
+
+    if (!targetResolvedAt) continue;
+    const entryTs = entry.created_at ? new Date(entry.created_at).getTime() : null;
+    if (!entryTs || Number.isNaN(entryTs)) continue;
+    if (Math.abs(entryTs - targetResolvedAt) <= 1000 * 60 * 10) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 export const CreditRequest = {
   findAll() {
     return [...db.data.creditRequests].sort(
@@ -71,5 +101,33 @@ export const CreditRequest = {
     request.manual_email_sent_at = request.manual_email_sent ? new Date().toISOString() : null;
     await db.write();
     return request;
+  },
+
+  async backfillApprovedTransactions() {
+    const approved = (db.data.creditRequests || []).filter((request) => request.status === "approved");
+    if (approved.length === 0) return 0;
+
+    const existingTransactions = await Transaction.list();
+    let inserted = 0;
+
+    for (const request of approved) {
+      if (hasMatchingTransaction(existingTransactions, request)) {
+        continue;
+      }
+
+      const created = await Transaction.create({
+        email: normalizeEmail(request.email),
+        type: "credit_purchase",
+        amount: Number(request.vc),
+        note: `Approved credit request #${request.id} via ${request.method}`,
+        status: "completed",
+        created_at: request.resolved_at || request.created_at || new Date().toISOString(),
+      });
+
+      existingTransactions.push(created);
+      inserted += 1;
+    }
+
+    return inserted;
   },
 };

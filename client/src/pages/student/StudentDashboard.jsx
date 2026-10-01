@@ -481,6 +481,28 @@ export default function StudentDashboard() {
 
                         {activeSubmissionTab === "details" && (
                           <div className="mt-4 space-y-3">
+                            <div>
+                              <p className="font-body text-xs text-slate-500">Uploaded file</p>
+                              {submission.attachment_storage_path ? (
+                                <>
+                                  {!isReadOnlyView && (
+                                    <button
+                                      onClick={() => handleDownloadSubmission(submission.id)}
+                                      disabled={downloadingSubmissionId === submission.id}
+                                      className="mt-2 rounded-sm bg-ink-900 px-3 py-2 font-body text-xs text-white disabled:opacity-60"
+                                    >
+                                      {downloadingSubmissionId === submission.id ? "Preparing file..." : "Open uploaded PDF"}
+                                    </button>
+                                  )}
+                                  <p className="mt-1 font-body text-xs text-slate-500">
+                                    {submission.attachment_original_name || submission.attachment_filename || "submission.pdf"}
+                                  </p>
+                                </>
+                              ) : (
+                                <p className="mt-1 font-body text-sm text-slate-500">No uploaded file found.</p>
+                              )}
+                            </div>
+
                             <p className="font-body text-xs text-slate-500">
                               Service: {submission.service_label || submission.service_key || "—"}
                             </p>
@@ -512,26 +534,33 @@ export default function StudentDashboard() {
                                 ))}
                               </ul>
                             </div>
-                            {submission.attachment_storage_path && !isReadOnlyView && (
-                              <div>
-                                <p className="font-body text-xs text-slate-500">Uploaded file</p>
-                                <button
-                                  onClick={() => handleDownloadSubmission(submission.id)}
-                                  disabled={downloadingSubmissionId === submission.id}
-                                  className="mt-2 rounded-sm bg-ink-900 px-3 py-2 font-body text-xs text-white disabled:opacity-60"
-                                >
-                                  {downloadingSubmissionId === submission.id ? "Preparing file..." : "Open uploaded PDF"}
-                                </button>
-                                <p className="mt-1 font-body text-xs text-slate-500">
-                                  {submission.attachment_original_name || submission.attachment_filename || "submission.pdf"}
-                                </p>
-                              </div>
-                            )}
                           </div>
                         )}
 
                         {activeSubmissionTab === "feedback" && (
                           <div className="mt-4 space-y-3">
+                            <div className="rounded-sm border border-hairline bg-parchment p-3">
+                              <p className="font-body text-xs text-slate-500">Submission file</p>
+                              {submission.attachment_storage_path ? (
+                                <>
+                                  {!isReadOnlyView && (
+                                    <button
+                                      onClick={() => handleDownloadSubmission(submission.id)}
+                                      disabled={downloadingSubmissionId === submission.id}
+                                      className="mt-2 rounded-sm bg-ink-900 px-3 py-2 font-body text-xs text-white disabled:opacity-60"
+                                    >
+                                      {downloadingSubmissionId === submission.id ? "Preparing file..." : "Open uploaded PDF"}
+                                    </button>
+                                  )}
+                                  <p className="mt-1 font-body text-xs text-slate-500">
+                                    {submission.attachment_original_name || submission.attachment_filename || "submission.pdf"}
+                                  </p>
+                                </>
+                              ) : (
+                                <p className="mt-1 font-body text-sm text-slate-500">No uploaded file found.</p>
+                              )}
+                            </div>
+
                             {submission.reviewer_notes ? (
                               <div>
                                 <p className="font-body text-xs text-slate-500">Reviewer feedback</p>

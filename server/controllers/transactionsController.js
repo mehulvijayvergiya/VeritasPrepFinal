@@ -1,6 +1,8 @@
 import { Transaction } from "../models/Transaction.js";
+import { CreditRequest } from "../models/CreditRequest.js";
 
 export async function listTransactions(req, res) {
+  await CreditRequest.backfillApprovedTransactions();
   const transactions = await Transaction.list();
   res.json({ transactions });
 }

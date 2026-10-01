@@ -26,7 +26,13 @@ export async function createCreditRequest(req, res) {
 }
 
 export function listCreditRequests(req, res) {
-  res.json({ requests: CreditRequest.findAll() });
+  CreditRequest.backfillApprovedTransactions()
+    .then(() => {
+      res.json({ requests: CreditRequest.findAll() });
+    })
+    .catch((err) => {
+      res.status(400).json({ error: err.message || "Unable to load credit requests." });
+    });
 }
 
 export async function approveCreditRequest(req, res) {
