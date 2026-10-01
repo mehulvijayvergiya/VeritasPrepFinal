@@ -81,6 +81,7 @@ export const api = {
     request(`/credit-requests/${id}/approve`, { method: "POST", auth: true }),
   rejectCreditRequest: (id) =>
     request(`/credit-requests/${id}/reject`, { method: "POST", auth: true }),
+  listTransactions: () => request("/transactions", { auth: true }),
 
   // Student account (Supabase-authenticated)
   getStudentMe: (studentToken) => request("/students/me", { token: studentToken }),

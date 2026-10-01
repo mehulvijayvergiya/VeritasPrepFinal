@@ -303,6 +303,7 @@ function SubmissionsTab({ submissions, loading, onUpdate, onOpenStudentProfile }
 
 function CreditsTab() {
   const [requests, setRequests] = useState([]);
+  const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [actioning, setActioning] = useState(null);
   const [error, setError] = useState("");
@@ -310,8 +311,12 @@ function CreditsTab() {
   async function load() {
     setLoading(true);
     try {
-      const { requests } = await api.listCreditRequests();
+      const [{ requests }, { transactions }] = await Promise.all([
+        api.listCreditRequests(),
+        api.listTransactions(),
+      ]);
       setRequests(requests);
+      setTransactions(transactions || []);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -327,6 +332,8 @@ function CreditsTab() {
       const fn = action === "approve" ? api.approveCreditRequest : api.rejectCreditRequest;
       const { request } = await fn(id);
       setRequests((all) => all.map((r) => (r.id === request.id ? request : r)));
+      const { transactions } = await api.listTransactions();
+      setTransactions(transactions || []);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -336,6 +343,11 @@ function CreditsTab() {
 
   const pending = requests.filter((r) => r.status === "pending");
   const resolved = requests.filter((r) => r.status !== "pending");
+  const purchaseHistory = transactions.filter((entry) =>
+    entry.type === "credit_purchase" ||
+    entry.type === "credit_spend" ||
+    entry.type === "credit_refund"
+  );
 
   return (
     <div className="flex-1 overflow-y-auto p-8">
@@ -414,6 +426,34 @@ function CreditsTab() {
             ))}
           </div>
         </>
+      )}
+
+      <h3 className="mt-10 font-mono text-xs uppercase tracking-widest text-slate-500">
+        Purchase history
+      </h3>
+      {purchaseHistory.length === 0 && !loading && (
+        <p className="mt-3 font-body text-sm text-slate-500">No credit transactions found yet.</p>
+      )}
+      {purchaseHistory.length > 0 && (
+        <div className="mt-3 divide-y divide-hairline rounded-sm border border-hairline bg-white overflow-hidden">
+          {purchaseHistory.map((entry) => (
+            <div key={entry.id} className="flex flex-wrap items-center justify-between gap-4 px-6 py-4">
+              <div>
+                <p className="font-body text-sm text-ink-900">{entry.email}</p>
+                <p className="mt-0.5 font-body text-xs text-slate-500">{entry.note || entry.type}</p>
+                <p className="mt-0.5 font-mono text-[11px] text-slate-400">
+                  {entry.created_at ? new Date(entry.created_at).toLocaleString() : "—"}
+                </p>
+              </div>
+              <div className="text-right">
+                <p className={`font-body text-sm font-medium ${Number(entry.amount) >= 0 ? "text-emerald-700" : "text-red-700"}`}>
+                  {Number(entry.amount) >= 0 ? "+" : ""}{entry.amount} VC
+                </p>
+                <p className="mt-0.5 font-body text-xs text-slate-500">{entry.status || "completed"}</p>
+              </div>
+            </div>
+          ))}
+        </div>
       )}
     </div>
   );
@@ -777,18 +817,29 @@ function StudentsTab({ onOpenStudentProfile, onLoadedCount, onViewAsStudent }) {
         <ul className="divide-y divide-hairline">
           {filtered.map((item) => (
             <li key={item.profile.id}>
-              <button
-                onClick={() => setSelectedId(item.profile.id)}
-                className={`block w-full px-4 py-3 text-left transition hover:bg-parchment ${
+              <div
+                className={`px-4 py-3 transition hover:bg-parchment ${
                   selected?.profile?.id === item.profile.id ? "bg-gold-100/60" : ""
                 }`}
               >
-                <p className="font-body text-sm font-medium text-ink-900">{item.profile.full_name || "Unnamed student"}</p>
-                <p className="mt-0.5 font-body text-xs text-slate-500">{item.profile.email || "No email"}</p>
-                <p className="mt-1 font-body text-[11px] text-slate-500">
-                  Subs {item.metrics?.submissions?.total || 0} · Meetings {item.metrics?.appointments?.total || 0}
-                </p>
-              </button>
+                <button
+                  onClick={() => setSelectedId(item.profile.id)}
+                  className="block w-full text-left"
+                >
+                  <p className="font-body text-sm font-medium text-ink-900">{item.profile.full_name || "Unnamed student"}</p>
+                  <p className="mt-0.5 font-body text-xs text-slate-500">{item.profile.email || "No email"}</p>
+                  <p className="mt-1 font-body text-[11px] text-slate-500">
+                    Subs {item.metrics?.submissions?.total || 0} · Meetings {item.metrics?.appointments?.total || 0}
+                  </p>
+                </button>
+                <button
+                  onClick={() => handleViewAsStudent(item.profile.id)}
+                  disabled={viewAsBusyId === item.profile.id}
+                  className="mt-2 rounded-sm border border-ink-300 px-2.5 py-1 font-body text-[11px] font-medium text-ink-700 disabled:opacity-60"
+                >
+                  {viewAsBusyId === item.profile.id ? "Opening..." : "Student view"}
+                </button>
+              </div>
             </li>
           ))}
         </ul>
