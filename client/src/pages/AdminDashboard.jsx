@@ -343,10 +343,35 @@ function CreditsTab() {
 
   const pending = requests.filter((r) => r.status === "pending");
   const resolved = requests.filter((r) => r.status !== "pending");
-  const purchaseHistory = transactions.filter((entry) =>
+  const transactionHistory = transactions.filter((entry) =>
     entry.type === "credit_purchase" ||
     entry.type === "credit_spend" ||
     entry.type === "credit_refund"
+  );
+
+  const requestBackfillHistory = resolved
+    .filter((request) => {
+      if (request.status !== "approved" && request.status !== "rejected") return false;
+      const requestIdTag = `request #${request.id}`;
+      return !transactionHistory.some((entry) =>
+        (entry.note || "").toLowerCase().includes(requestIdTag)
+      );
+    })
+    .map((request) => ({
+      id: `request-${request.id}`,
+      email: request.email,
+      amount: request.status === "approved" ? request.vc : 0,
+      note:
+        request.status === "approved"
+          ? `${request.vc} VC approved via ${request.method}`
+          : `Credit request rejected (${request.method})`,
+      status: request.status,
+      created_at: request.resolved_at || request.created_at,
+      source: "credit_request",
+    }));
+
+  const purchaseHistory = [...transactionHistory, ...requestBackfillHistory].sort(
+    (a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0)
   );
 
   return (

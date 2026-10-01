@@ -8,6 +8,50 @@ import jwt from "jsonwebtoken";
 
 const STUDENT_VIEW_TOKEN_TTL_SECONDS = 60 * 15;
 
+function buildCreditHistoryEntries({ transactions, creditRequests, email }) {
+  const normalizedEmail = (email || "").toLowerCase().trim();
+  const txList = (transactions || [])
+    .filter((item) => ((item.email || "").toLowerCase().trim() === normalizedEmail))
+    .map((item) => ({
+      id: `tx-${item.id}`,
+      source: "transaction",
+      email: item.email,
+      type: item.type,
+      amount: item.amount,
+      note: item.note || "",
+      status: item.status || "completed",
+      created_at: item.created_at,
+    }));
+
+  const requestBackfill = (creditRequests || [])
+    .filter((item) => ((item.email || "").toLowerCase().trim() === normalizedEmail))
+    .filter((item) => item.status === "approved" || item.status === "rejected")
+    .filter((item) => {
+      const requestIdTag = `request #${item.id}`;
+      return !txList.some((entry) => (entry.note || "").toLowerCase().includes(requestIdTag));
+    })
+    .map((item) => ({
+      id: `request-${item.id}`,
+      source: "credit_request",
+      email: item.email,
+      type: item.status === "approved" ? "credit_purchase" : "credit_request_rejected",
+      amount: item.status === "approved" ? Number(item.vc || 0) : 0,
+      note:
+        item.status === "approved"
+          ? `${item.vc} VC approved via ${item.method}`
+          : `Credit request rejected (${item.method})`,
+      status: item.status,
+      created_at: item.resolved_at || item.created_at,
+      amount_usd: item.amount_usd,
+      method: item.method,
+      request_id: item.id,
+    }));
+
+  return [...txList, ...requestBackfill].sort(
+    (a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0)
+  );
+}
+
 function shapeProfile(profile) {
   return {
     id: profile.id,
@@ -33,6 +77,10 @@ async function buildStudentDashboardSnapshot(profileId) {
   const profile = await ProfileModel.getById(profileId);
   if (!profile) return null;
 
+  await CreditRequest.backfillApprovedTransactions();
+
+  const allCreditRequests = CreditRequest.findAll();
+
   const [submissions, appointments, transactions] = await Promise.all([
     Submission.listByProfile(profile.id, profile.email),
     Appointment.listForStudent(profile.id, profile.email),
@@ -43,7 +91,11 @@ async function buildStudentDashboardSnapshot(profileId) {
     profile: shapeProfile(profile),
     submissions,
     appointments,
-    transactions,
+    transactions: buildCreditHistoryEntries({
+      transactions,
+      creditRequests: allCreditRequests,
+      email: profile.email,
+    }),
   };
 }
 
@@ -184,8 +236,17 @@ export async function mySubmissions(req, res) {
 
 export async function myTransactions(req, res) {
   const { profile } = req.student;
-  const transactions = await Transaction.listByEmail(profile.email);
-  res.json({ transactions });
+  await CreditRequest.backfillApprovedTransactions();
+  const [transactions, allCreditRequests] = await Promise.all([
+    Transaction.listByEmail(profile.email),
+    Promise.resolve(CreditRequest.findAll()),
+  ]);
+  const history = buildCreditHistoryEntries({
+    transactions,
+    creditRequests: allCreditRequests,
+    email: profile.email,
+  });
+  res.json({ transactions: history });
 }
 
 export async function getStudentProfileAdmin(req, res) {
@@ -264,17 +325,17 @@ export async function getStudentRosterAdmin(req, res) {
         );
       });
 
-      const creditTransactions = allTransactions
-        .filter((item) => {
-          return (item.email || "").toLowerCase().trim() === normalizedEmail;
-        })
-        .sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
-
       const creditRequests = allCreditRequests
         .filter((item) => {
           return (item.email || "").toLowerCase().trim() === normalizedEmail;
         })
         .sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+
+      const creditTransactions = buildCreditHistoryEntries({
+        transactions: allTransactions,
+        creditRequests: allCreditRequests,
+        email: profile.email,
+      });
 
       const submissionCounts = submissions.reduce(
         (acc, item) => {
