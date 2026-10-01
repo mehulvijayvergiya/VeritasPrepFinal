@@ -244,6 +244,14 @@ export async function listSubmissions(req, res) {
       })
     )
   );
+  await Promise.all(
+    profiles.map((profile) =>
+      Submission.enrichRecoveredMetadata({
+        profileId: profile.id,
+        profileEmail: profile.email,
+      })
+    )
+  );
   const submissions = await Submission.findAll();
   res.json({ submissions });
 }

@@ -120,6 +120,9 @@ async function syncSubmissionToSupabase(submission, { strict = false } = {}) {
         essay_prompt: submission.essay_prompt || null,
         activities: submission.activities || "",
         notes: submission.notes || "",
+        service_key: submission.service_key || null,
+        service_label: submission.service_label || null,
+        vc_cost: submission.vc_cost ?? null,
         submission_title: submission.submission_title || formattedTitle,
         submission_type: submission.submission_type || null,
         submission_checklist: submission.submission_checklist || [],
@@ -190,6 +193,12 @@ function inferServiceLabel(serviceKey) {
   if (serviceKey === "essay_long") return "Essay (> 500 words / Common App)";
   if (serviceKey === "meeting") return "15-min 1:1 Meeting";
   return "Submission";
+}
+
+function inferFileNameFromPath(storagePath) {
+  if (!storagePath || typeof storagePath !== "string") return null;
+  const parts = storagePath.split("/").filter(Boolean);
+  return parts.length ? parts[parts.length - 1] : null;
 }
 
 export const Submission = {
@@ -301,6 +310,17 @@ export const Submission = {
       // Fall back to local cache.
     }
 
+    await Submission.enrichRecoveredMetadata({
+      profileId,
+      profileEmail,
+    });
+
+    try {
+      await refreshSubmissionsFromSupabase();
+    } catch {
+      // Fall back to local cache.
+    }
+
     const normalizedEmail = (profileEmail || "").toLowerCase().trim();
     let matched = db.data.submissions
       .filter((s) => {
@@ -317,6 +337,7 @@ export const Submission = {
         email: profileEmail,
       });
       if (recovered > 0) {
+        await Submission.enrichRecoveredMetadata({ profileId, profileEmail });
         try {
           await refreshSubmissionsFromSupabase();
         } catch {
@@ -334,6 +355,71 @@ export const Submission = {
     }
 
     return matched;
+  },
+
+  async enrichRecoveredMetadata({ profileId, profileEmail } = {}) {
+    try {
+      await refreshSubmissionsFromSupabase();
+    } catch {
+      // Continue with current cache.
+    }
+
+    const normalizedEmail = (profileEmail || "").toLowerCase().trim();
+    const candidates = db.data.submissions.filter((submission) => {
+      if (profileId && submission.profile_id === profileId) return true;
+      if (normalizedEmail && submission.email && submission.email.toLowerCase() === normalizedEmail) return true;
+      return false;
+    });
+
+    let changed = false;
+    for (const submission of candidates) {
+      const inferredServiceKey = submission.service_key || inferServiceKeyFromPath(submission.attachment_storage_path || submission.attachment_path);
+      const inferredServiceLabel = submission.service_label || inferServiceLabel(inferredServiceKey);
+      const inferredFileName =
+        submission.attachment_original_name ||
+        submission.attachment_filename ||
+        inferFileNameFromPath(submission.attachment_storage_path || submission.attachment_path);
+      const inferredTitle = submission.submission_title || formatSubmissionTitle(submission.name, inferredServiceLabel, inferredServiceKey);
+
+      let rowChanged = false;
+      if (!submission.service_key && inferredServiceKey) {
+        submission.service_key = inferredServiceKey;
+        submission.submission_type = submission.submission_type || inferredServiceKey;
+        rowChanged = true;
+      }
+      if (!submission.service_label && inferredServiceLabel) {
+        submission.service_label = inferredServiceLabel;
+        rowChanged = true;
+      }
+      if (!submission.submission_title && inferredTitle) {
+        submission.submission_title = inferredTitle;
+        rowChanged = true;
+      }
+      if (!submission.attachment_original_name && inferredFileName) {
+        submission.attachment_original_name = inferredFileName;
+        rowChanged = true;
+      }
+      if (!submission.attachment_filename && inferredFileName) {
+        submission.attachment_filename = inferredFileName;
+        rowChanged = true;
+      }
+      if ((submission.notes || "").trim() === "Recovered from uploaded PDF in storage.") {
+        submission.notes = "";
+        rowChanged = true;
+      }
+
+      if (rowChanged) {
+        submission.updated_at = new Date().toISOString();
+        await syncSubmissionToSupabase(submission);
+        changed = true;
+      }
+    }
+
+    if (changed) {
+      await db.write();
+    }
+
+    return changed;
   },
 
   async recoverFromStorageForProfile({ profileId, email, name }) {
@@ -386,6 +472,7 @@ export const Submission = {
       const serviceLabel = inferServiceLabel(serviceKey);
       const inferredName = name || "Student";
       const inferredEmail = normalizedEmail || "unknown@example.com";
+      const inferredFileName = file.name || inferFileNameFromPath(file.path) || "submission.pdf";
 
       await Submission.create(
         {
@@ -400,8 +487,8 @@ export const Submission = {
           submission_title: formatSubmissionTitle(inferredName, serviceLabel, serviceKey),
           submission_checklist: [],
           profile_id: profileId || null,
-          attachment_filename: file.name,
-          attachment_original_name: file.name,
+          attachment_filename: inferredFileName,
+          attachment_original_name: inferredFileName,
           attachment_storage_path: file.path,
           attachment_url: null,
           created_at: file.created_at || new Date().toISOString(),

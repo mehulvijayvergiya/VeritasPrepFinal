@@ -3,6 +3,7 @@ import { Appointment } from "../models/Appointment.js";
 import { Transaction } from "../models/Transaction.js";
 import { CreditRequest } from "../models/CreditRequest.js";
 import { ProfileModel } from "../models/supabase/profileModel.js";
+import { getSupabase } from "../config/supabaseClient.js";
 import jwt from "jsonwebtoken";
 
 const STUDENT_VIEW_TOKEN_TTL_SECONDS = 60 * 15;
@@ -44,6 +45,18 @@ async function buildStudentDashboardSnapshot(profileId) {
     appointments,
     transactions,
   };
+}
+
+function submissionBelongsToProfile(submission, profile) {
+  if (!submission || !profile) return false;
+  if (submission.profile_id && profile.id && submission.profile_id === profile.id) {
+    return true;
+  }
+  return (
+    Boolean(submission.email) &&
+    Boolean(profile.email) &&
+    submission.email.toLowerCase() === profile.email.toLowerCase()
+  );
 }
 
 export function me(req, res) {
@@ -109,12 +122,61 @@ export async function viewAsStudentDashboard(req, res) {
   }
 }
 
+export async function viewAsStudentSubmissionDownloadUrl(req, res) {
+  const viewToken = (req.query.view_token || "").toString().trim();
+  if (!viewToken) {
+    return res.status(401).json({ error: "Missing view token." });
+  }
+
+  try {
+    const payload = jwt.verify(viewToken, process.env.JWT_SECRET);
+    if (payload?.type !== "student_view" || !payload?.profile_id) {
+      return res.status(401).json({ error: "Invalid view token." });
+    }
+
+    const profile = await ProfileModel.getById(payload.profile_id);
+    if (!profile) {
+      return res.status(404).json({ error: "Student profile not found." });
+    }
+
+    const submission = await Submission.findById(req.params.id);
+    if (!submission) return res.status(404).json({ error: "Submission not found." });
+    if (!submissionBelongsToProfile(submission, profile)) {
+      return res.status(403).json({ error: "You do not have access to this submission." });
+    }
+
+    const storagePath = submission.attachment_storage_path || submission.attachment_path;
+    if (!storagePath) {
+      return res.status(404).json({ error: "No uploaded PDF found for this submission." });
+    }
+
+    const supabase = getSupabase();
+    const { data, error } = await supabase.storage
+      .from("student-submissions")
+      .createSignedUrl(storagePath, 60 * 15, {
+        download: submission.attachment_original_name || submission.attachment_filename || "submission.pdf",
+      });
+
+    if (error || !data?.signedUrl) {
+      return res.status(502).json({ error: error?.message || "Unable to generate download link." });
+    }
+
+    return res.json({ url: data.signedUrl, expires_in: 60 * 15 });
+  } catch {
+    return res.status(401).json({ error: "View session expired. Please reopen from the admin dashboard." });
+  }
+}
+
 export async function mySubmissions(req, res) {
   const { profile } = req.student;
   await Submission.recoverFromStorageForProfile({
     profileId: profile.id,
     email: profile.email,
     name: profile.full_name,
+  });
+  await Submission.enrichRecoveredMetadata({
+    profileId: profile.id,
+    profileEmail: profile.email,
   });
   const submissions = await Submission.listByProfile(profile.id, profile.email);
   res.json({ submissions });
@@ -165,6 +227,14 @@ export async function getStudentRosterAdmin(req, res) {
           profileId: profile.id,
           email: profile.email,
           name: profile.full_name,
+        })
+      )
+    );
+    await Promise.all(
+      profiles.map((profile) =>
+        Submission.enrichRecoveredMetadata({
+          profileId: profile.id,
+          profileEmail: profile.email,
         })
       )
     );

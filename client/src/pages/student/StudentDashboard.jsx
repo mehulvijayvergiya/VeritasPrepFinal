@@ -24,6 +24,7 @@ export default function StudentDashboard() {
   const [sessionToken, setSessionToken] = useState("");
   const [isReadOnlyView, setIsReadOnlyView] = useState(false);
   const [viewedByAdmin, setViewedByAdmin] = useState("");
+  const [viewToken, setViewToken] = useState("");
   const [profileForm, setProfileForm] = useState({
     full_name: "",
     phone_number: "",
@@ -60,6 +61,7 @@ export default function StudentDashboard() {
 
         if (viewToken) {
           setIsReadOnlyView(true);
+          setViewToken(viewToken);
           const snapshot = await api.getStudentDashboardView(viewToken);
           profile = snapshot.profile;
           submissions = snapshot.submissions;
@@ -194,10 +196,19 @@ export default function StudentDashboard() {
   }
 
   async function handleDownloadSubmission(submissionId) {
-    if (isReadOnlyView || !sessionToken) return;
+    if (!submissionId) return;
     setDownloadingSubmissionId(submissionId);
     try {
-      const { url } = await api.getStudentSubmissionDownloadUrl(submissionId, sessionToken);
+      let url = "";
+      if (isReadOnlyView) {
+        if (!viewToken) return;
+        const data = await api.getStudentSubmissionDownloadUrlForView(submissionId, viewToken);
+        url = data.url;
+      } else {
+        if (!sessionToken) return;
+        const data = await api.getStudentSubmissionDownloadUrl(submissionId, sessionToken);
+        url = data.url;
+      }
       window.open(url, "_blank", "noopener,noreferrer");
     } catch (err) {
       setSaveMessage(err.message || "Unable to open your uploaded file.");
@@ -485,15 +496,13 @@ export default function StudentDashboard() {
                               <p className="font-body text-xs text-slate-500">Uploaded file</p>
                               {submission.attachment_storage_path ? (
                                 <>
-                                  {!isReadOnlyView && (
-                                    <button
-                                      onClick={() => handleDownloadSubmission(submission.id)}
-                                      disabled={downloadingSubmissionId === submission.id}
-                                      className="mt-2 rounded-sm bg-ink-900 px-3 py-2 font-body text-xs text-white disabled:opacity-60"
-                                    >
-                                      {downloadingSubmissionId === submission.id ? "Preparing file..." : "Open uploaded PDF"}
-                                    </button>
-                                  )}
+                                  <button
+                                    onClick={() => handleDownloadSubmission(submission.id)}
+                                    disabled={downloadingSubmissionId === submission.id}
+                                    className="mt-2 rounded-sm bg-ink-900 px-3 py-2 font-body text-xs text-white disabled:opacity-60"
+                                  >
+                                    {downloadingSubmissionId === submission.id ? "Preparing file..." : "Open uploaded PDF"}
+                                  </button>
                                   <p className="mt-1 font-body text-xs text-slate-500">
                                     {submission.attachment_original_name || submission.attachment_filename || "submission.pdf"}
                                   </p>
@@ -543,15 +552,13 @@ export default function StudentDashboard() {
                               <p className="font-body text-xs text-slate-500">Submission file</p>
                               {submission.attachment_storage_path ? (
                                 <>
-                                  {!isReadOnlyView && (
-                                    <button
-                                      onClick={() => handleDownloadSubmission(submission.id)}
-                                      disabled={downloadingSubmissionId === submission.id}
-                                      className="mt-2 rounded-sm bg-ink-900 px-3 py-2 font-body text-xs text-white disabled:opacity-60"
-                                    >
-                                      {downloadingSubmissionId === submission.id ? "Preparing file..." : "Open uploaded PDF"}
-                                    </button>
-                                  )}
+                                  <button
+                                    onClick={() => handleDownloadSubmission(submission.id)}
+                                    disabled={downloadingSubmissionId === submission.id}
+                                    className="mt-2 rounded-sm bg-ink-900 px-3 py-2 font-body text-xs text-white disabled:opacity-60"
+                                  >
+                                    {downloadingSubmissionId === submission.id ? "Preparing file..." : "Open uploaded PDF"}
+                                  </button>
                                   <p className="mt-1 font-body text-xs text-slate-500">
                                     {submission.attachment_original_name || submission.attachment_filename || "submission.pdf"}
                                   </p>

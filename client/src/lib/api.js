@@ -97,6 +97,8 @@ export const api = {
   getStudentTransactions: (studentToken) => request("/students/transactions", { token: studentToken }),
   getStudentSubmissionDownloadUrl: (id, studentToken) =>
     request(`/students/submissions/${id}/download-url`, { token: studentToken }),
+  getStudentSubmissionDownloadUrlForView: (id, viewToken) =>
+    request(`/students/view-as/submissions/${id}/download-url?view_token=${encodeURIComponent(viewToken)}`),
   getStudentAppointments: (studentToken) => request("/appointments/my", { token: studentToken }),
   listMeetingSlots: () => request("/appointments/slots"),
   listMeetingSlotsAdmin: () => request("/appointments/slots/admin", { auth: true }),
