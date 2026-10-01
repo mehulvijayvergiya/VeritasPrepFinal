@@ -684,12 +684,26 @@ function AppointmentsTab({ onOpenStudentProfile }) {
   );
 }
 
-function StudentsTab({ onOpenStudentProfile, onLoadedCount }) {
+function StudentsTab({ onOpenStudentProfile, onLoadedCount, onViewAsStudent }) {
   const [roster, setRoster] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [query, setQuery] = useState("");
   const [selectedId, setSelectedId] = useState("");
+  const [viewAsBusyId, setViewAsBusyId] = useState("");
+
+  async function handleViewAsStudent(profileId) {
+    if (!profileId || !onViewAsStudent) return;
+    setViewAsBusyId(profileId);
+    setError("");
+    try {
+      await onViewAsStudent(profileId);
+    } catch (err) {
+      setError(err.message || "Unable to open student view.");
+    } finally {
+      setViewAsBusyId("");
+    }
+  }
 
   async function load() {
     setLoading(true);
@@ -797,9 +811,18 @@ function StudentsTab({ onOpenStudentProfile, onLoadedCount }) {
                 </button>
                 <p className="mt-1 font-body text-sm text-slate-500">{selected.profile.email || "No email"}</p>
               </div>
-              <div className="rounded-sm border border-hairline bg-white px-3 py-2">
-                <p className="font-mono text-[10px] uppercase tracking-wider text-slate-500">Credits</p>
-                <p className="font-display text-xl text-ink-900">{selected.profile.credits ?? 0}</p>
+              <div className="flex flex-wrap items-center gap-3">
+                <button
+                  onClick={() => handleViewAsStudent(selected.profile.id)}
+                  disabled={viewAsBusyId === selected.profile.id}
+                  className="rounded-sm bg-ink-900 px-3 py-2 font-body text-xs font-medium text-white disabled:opacity-60"
+                >
+                  {viewAsBusyId === selected.profile.id ? "Opening..." : "View as student"}
+                </button>
+                <div className="rounded-sm border border-hairline bg-white px-3 py-2">
+                  <p className="font-mono text-[10px] uppercase tracking-wider text-slate-500">Credits</p>
+                  <p className="font-display text-xl text-ink-900">{selected.profile.credits ?? 0}</p>
+                </div>
               </div>
             </div>
 
@@ -965,6 +988,16 @@ export default function AdminDashboard() {
     }
   }
 
+  async function openStudentViewAs(profileId) {
+    const { view_token: viewToken } = await api.createStudentViewToken(profileId);
+    if (!viewToken) {
+      throw new Error("Unable to create a student view session.");
+    }
+
+    const viewUrl = `/student/dashboard?view_token=${encodeURIComponent(viewToken)}`;
+    window.open(viewUrl, "_blank", "noopener,noreferrer");
+  }
+
   const meetingCount = submissions.filter((s) => s.service_key === "meeting").length;
   const stats = {
     total: submissions.length,
@@ -1059,6 +1092,7 @@ export default function AdminDashboard() {
         <StudentsTab
           onOpenStudentProfile={openStudentProfile}
           onLoadedCount={setStudentCount}
+          onViewAsStudent={openStudentViewAs}
         />
       )}
       {tab === "credits" && <CreditsTab />}
@@ -1069,12 +1103,22 @@ export default function AdminDashboard() {
           <div className="w-full max-w-xl rounded-sm bg-white p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between">
               <h3 className="font-display text-xl text-ink-900">Student profile</h3>
-              <button
-                onClick={() => setProfilePanel((prev) => ({ ...prev, open: false }))}
-                className="font-body text-xs text-slate-500"
-              >
-                Close
-              </button>
+              <div className="flex items-center gap-3">
+                {profilePanel.profile?.id && (
+                  <button
+                    onClick={() => openStudentViewAs(profilePanel.profile.id)}
+                    className="rounded-sm bg-ink-900 px-3 py-1.5 font-body text-xs font-medium text-white"
+                  >
+                    Student view
+                  </button>
+                )}
+                <button
+                  onClick={() => setProfilePanel((prev) => ({ ...prev, open: false }))}
+                  className="font-body text-xs text-slate-500"
+                >
+                  Close
+                </button>
+              </div>
             </div>
 
             {profilePanel.loading && <p className="mt-4 font-body text-sm text-slate-500">Loading profile...</p>}

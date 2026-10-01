@@ -21,6 +21,15 @@ function formatSubmissionTitle(name, serviceLabel, serviceKey) {
   return `${left} - ${right}`;
 }
 
+function toSafeSegment(value) {
+  return (value || "")
+    .toString()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 80);
+}
+
 function hydrateSubmission(submission) {
   if (!submission.attachment_storage_path && submission.attachment_path) {
     submission.attachment_storage_path = submission.attachment_path;
@@ -90,7 +99,7 @@ async function refreshSubmissionsFromSupabase() {
   return db.data.submissions;
 }
 
-async function syncSubmissionToSupabase(submission) {
+async function syncSubmissionToSupabase(submission, { strict = false } = {}) {
   try {
     const supabase = getSupabase();
     const formattedTitle = formatSubmissionTitle(
@@ -123,8 +132,6 @@ async function syncSubmissionToSupabase(submission) {
         annotations: submission.annotations || [],
         comments: submission.comments || [],
         feedback_sent_at: submission.feedback_sent_at || null,
-        manual_email_sent: Boolean(submission.manual_email_sent),
-        manual_email_sent_at: submission.manual_email_sent_at || null,
         created_at: submission.created_at,
         updated_at: submission.updated_at,
         attachment_path: submission.attachment_storage_path || null,
@@ -132,8 +139,57 @@ async function syncSubmissionToSupabase(submission) {
       { onConflict: "id" }
     );
   } catch (err) {
+    if (strict) {
+      throw err;
+    }
     console.warn("Unable to sync submission to Supabase:", err.message);
   }
+}
+
+async function listStorageFilesRecursive(prefix, out) {
+  const supabase = getSupabase();
+  const { data, error } = await supabase.storage.from("student-submissions").list(prefix, {
+    limit: 100,
+    offset: 0,
+    sortBy: { column: "name", order: "asc" },
+  });
+
+  if (error) {
+    return;
+  }
+
+  const items = Array.isArray(data) ? data : [];
+  for (const item of items) {
+    const fullPath = `${prefix}/${item.name}`;
+    if (item.metadata) {
+      out.push({
+        path: fullPath,
+        name: item.name,
+        created_at: item.created_at,
+      });
+    } else {
+      await listStorageFilesRecursive(fullPath, out);
+    }
+  }
+}
+
+function inferServiceKeyFromPath(storagePath) {
+  const lower = (storagePath || "").toLowerCase();
+  if (lower.includes("/activities/")) return "activities";
+  if (lower.includes("/essay-short/")) return "essay_short";
+  if (lower.includes("/essay-medium/")) return "essay_medium";
+  if (lower.includes("/essay-long/")) return "essay_long";
+  if (lower.includes("/meeting")) return "meeting";
+  return null;
+}
+
+function inferServiceLabel(serviceKey) {
+  if (serviceKey === "activities") return "Activity List Review";
+  if (serviceKey === "essay_short") return "Supplemental Essay (<= 300 words)";
+  if (serviceKey === "essay_medium") return "Supplemental Essay (301-500 words)";
+  if (serviceKey === "essay_long") return "Essay (> 500 words / Common App)";
+  if (serviceKey === "meeting") return "15-min 1:1 Meeting";
+  return "Submission";
 }
 
 export const Submission = {
@@ -157,14 +213,20 @@ export const Submission = {
     attachment_original_name,
     attachment_storage_path,
     attachment_url,
-  }) {
-    try {
-      await refreshSubmissionsFromSupabase();
-    } catch (err) {
-      console.warn("Proceeding with local submission cache:", err.message);
+    created_at,
+    updated_at,
+  }, options = {}) {
+    if (!options.skipPreRefresh) {
+      try {
+        await refreshSubmissionsFromSupabase();
+      } catch (err) {
+        console.warn("Proceeding with local submission cache:", err.message);
+      }
     }
 
     const now = new Date().toISOString();
+    const createdAt = created_at || now;
+    const updatedAt = updated_at || createdAt;
     const submission = {
       id: db.data.nextSubmissionId++,
       name,
@@ -201,12 +263,12 @@ export const Submission = {
       feedback_sent_at: null,
       manual_email_sent: false,
       manual_email_sent_at: null,
-      created_at: now,
-      updated_at: now,
+      created_at: createdAt,
+      updated_at: updatedAt,
     };
     db.data.submissions.push(submission);
     await db.write();
-    await syncSubmissionToSupabase(submission);
+    await syncSubmissionToSupabase(submission, { strict: Boolean(options.strictSync) });
     return submission;
   },
 
@@ -240,7 +302,7 @@ export const Submission = {
     }
 
     const normalizedEmail = (profileEmail || "").toLowerCase().trim();
-    return db.data.submissions
+    let matched = db.data.submissions
       .filter((s) => {
         if (profileId && s.profile_id === profileId) return true;
         if (!normalizedEmail || !s.email) return false;
@@ -248,6 +310,110 @@ export const Submission = {
       })
       .map(hydrateSubmission)
       .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+
+    if (matched.length === 0) {
+      const recovered = await Submission.recoverFromStorageForProfile({
+        profileId,
+        email: profileEmail,
+      });
+      if (recovered > 0) {
+        try {
+          await refreshSubmissionsFromSupabase();
+        } catch {
+          // Fall back to local cache.
+        }
+        matched = db.data.submissions
+          .filter((s) => {
+            if (profileId && s.profile_id === profileId) return true;
+            if (!normalizedEmail || !s.email) return false;
+            return s.email.toLowerCase() === normalizedEmail;
+          })
+          .map(hydrateSubmission)
+          .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+      }
+    }
+
+    return matched;
+  },
+
+  async recoverFromStorageForProfile({ profileId, email, name }) {
+    const normalizedEmail = (email || "").toLowerCase().trim();
+    if (!profileId && !normalizedEmail && !name) return 0;
+
+    try {
+      await refreshSubmissionsFromSupabase();
+    } catch {
+      // Continue with local cache snapshot.
+    }
+
+    const existingPaths = new Set(
+      db.data.submissions
+        .map((s) => s.attachment_storage_path || s.attachment_path)
+        .filter(Boolean)
+    );
+
+    const prefixes = [];
+    const seenPrefixes = new Set();
+    function pushPrefix(prefix) {
+      if (!prefix || seenPrefixes.has(prefix)) return;
+      seenPrefixes.add(prefix);
+      prefixes.push(prefix);
+    }
+
+    if (profileId) pushPrefix(`students/${profileId}`);
+    if (normalizedEmail) {
+      pushPrefix(`students/${normalizedEmail}`);
+      pushPrefix(`students/${toSafeSegment(normalizedEmail)}`);
+      pushPrefix(`students/${normalizedEmail.replace(/@/g, " ").replace(/\./g, " ")}`);
+    }
+    if (name) {
+      pushPrefix(`students/${name}`);
+      pushPrefix(`students/${toSafeSegment(name)}`);
+    }
+
+    const files = [];
+    for (const prefix of prefixes) {
+      await listStorageFilesRecursive(prefix, files);
+    }
+
+    let recoveredCount = 0;
+    for (const file of files) {
+      const lowerPath = (file.path || "").toLowerCase();
+      if (!lowerPath.endsWith(".pdf")) continue;
+      if (existingPaths.has(file.path)) continue;
+
+      const serviceKey = inferServiceKeyFromPath(file.path);
+      const serviceLabel = inferServiceLabel(serviceKey);
+      const inferredName = name || "Student";
+      const inferredEmail = normalizedEmail || "unknown@example.com";
+
+      await Submission.create(
+        {
+          name: inferredName,
+          email: inferredEmail,
+          colleges: "Recovered from storage",
+          essay: "",
+          activities: "",
+          notes: "Recovered from uploaded PDF in storage.",
+          service_key: serviceKey,
+          service_label: serviceLabel,
+          submission_title: formatSubmissionTitle(inferredName, serviceLabel, serviceKey),
+          submission_checklist: [],
+          profile_id: profileId || null,
+          attachment_filename: file.name,
+          attachment_original_name: file.name,
+          attachment_storage_path: file.path,
+          attachment_url: null,
+          created_at: file.created_at || new Date().toISOString(),
+          updated_at: file.created_at || new Date().toISOString(),
+        },
+        { skipPreRefresh: true, strictSync: true }
+      );
+      existingPaths.add(file.path);
+      recoveredCount += 1;
+    }
+
+    return recoveredCount;
   },
 
   async updateStatus(id, {

@@ -22,6 +22,8 @@ export default function StudentDashboard() {
   const [activeSubmissionTab, setActiveSubmissionTab] = useState("details");
   const [downloadingSubmissionId, setDownloadingSubmissionId] = useState("");
   const [sessionToken, setSessionToken] = useState("");
+  const [isReadOnlyView, setIsReadOnlyView] = useState(false);
+  const [viewedByAdmin, setViewedByAdmin] = useState("");
   const [profileForm, setProfileForm] = useState({
     full_name: "",
     phone_number: "",
@@ -47,15 +49,41 @@ export default function StudentDashboard() {
     let active = true;
     (async () => {
       try {
-        const session = await getStudentSession();
-        setSessionToken(session.access_token);
-        const [{ profile }, { submissions }, { appointments }, { slots }, { transactions }] = await Promise.all([
-          api.getStudentMe(session.access_token),
-          api.getStudentSubmissions(session.access_token),
-          api.getStudentAppointments(session.access_token),
-          api.listMeetingSlots(),
-          api.getStudentTransactions(session.access_token),
-        ]);
+        const params = new URLSearchParams(window.location.search);
+        const viewToken = params.get("view_token");
+
+        let profile;
+        let submissions;
+        let appointments;
+        let slots;
+        let transactions;
+
+        if (viewToken) {
+          setIsReadOnlyView(true);
+          const snapshot = await api.getStudentDashboardView(viewToken);
+          profile = snapshot.profile;
+          submissions = snapshot.submissions;
+          appointments = snapshot.appointments;
+          transactions = snapshot.transactions;
+          slots = [];
+          setViewedByAdmin(snapshot.viewed_by || "");
+        } else {
+          const session = await getStudentSession();
+          setSessionToken(session.access_token);
+          const data = await Promise.all([
+            api.getStudentMe(session.access_token),
+            api.getStudentSubmissions(session.access_token),
+            api.getStudentAppointments(session.access_token),
+            api.listMeetingSlots(),
+            api.getStudentTransactions(session.access_token),
+          ]);
+          profile = data[0].profile;
+          submissions = data[1].submissions;
+          appointments = data[2].appointments;
+          slots = data[3].slots;
+          transactions = data[4].transactions;
+        }
+
         if (active) {
           setProfile(profile);
           setSubmissions(submissions || []);
@@ -98,7 +126,7 @@ export default function StudentDashboard() {
     e.preventDefault();
     setSaveMessage("");
     setFormErrors({});
-    if (!sessionToken) return;
+    if (isReadOnlyView || !sessionToken) return;
 
     setSaving(true);
     try {
@@ -132,11 +160,17 @@ export default function StudentDashboard() {
   }
 
   async function handleLogout() {
+    if (isReadOnlyView) {
+      navigate("/admin");
+      return;
+    }
+
     await logoutStudent();
     navigate("/login");
   }
 
   async function handleReschedule(appointmentId) {
+    if (isReadOnlyView) return;
     const slotId = rescheduleChoices[appointmentId];
     if (!slotId || !sessionToken) return;
 
@@ -160,7 +194,7 @@ export default function StudentDashboard() {
   }
 
   async function handleDownloadSubmission(submissionId) {
-    if (!sessionToken) return;
+    if (isReadOnlyView || !sessionToken) return;
     setDownloadingSubmissionId(submissionId);
     try {
       const { url } = await api.getStudentSubmissionDownloadUrl(submissionId, sessionToken);
@@ -176,19 +210,29 @@ export default function StudentDashboard() {
     <div className="min-h-screen bg-parchment px-6 py-12">
       <div className="mx-auto max-w-xl">
         <div className="flex items-center justify-between">
-          <h1 className="font-display text-2xl text-ink-900">Your dashboard</h1>
+          <h1 className="font-display text-2xl text-ink-900">
+            {isReadOnlyView ? "Student dashboard (read-only)" : "Your dashboard"}
+          </h1>
           <div className="flex items-center gap-4">
-            <Link to="/" className="font-body text-sm font-medium text-ink-700 ink-underline">
-              Home
-            </Link>
+            {!isReadOnlyView && (
+              <Link to="/" className="font-body text-sm font-medium text-ink-700 ink-underline">
+                Home
+              </Link>
+            )}
             <button
               onClick={handleLogout}
               className="font-body text-sm font-medium text-ink-400 ink-underline"
             >
-              Sign out
+              {isReadOnlyView ? "Exit view" : "Sign out"}
             </button>
           </div>
         </div>
+
+        {isReadOnlyView && (
+          <div className="mt-4 rounded-sm border border-blue-200 bg-blue-50 px-4 py-2.5 font-body text-sm text-blue-900">
+            Read-only student view{viewedByAdmin ? ` for ${viewedByAdmin}` : ""}. Editing, rescheduling, and student-auth-only actions are disabled.
+          </div>
+        )}
 
         <div className="mt-6 rounded-sm bg-white p-7 paper-shadow">
           {loading && <p className="font-body text-sm text-ink-400">Loading your profile…</p>}
@@ -221,11 +265,12 @@ export default function StudentDashboard() {
           )}
         </div>
 
-        <form onSubmit={handleProfileSave} className="mt-5 rounded-sm bg-white p-7 paper-shadow">
-          <h2 className="font-display text-xl text-ink-900">College profile</h2>
-          <p className="mt-1 font-body text-sm text-slate-500">
-            Add your GPA, SAT, and other admissions stats here. This is now the source for target colleges.
-          </p>
+        {!isReadOnlyView && (
+          <form onSubmit={handleProfileSave} className="mt-5 rounded-sm bg-white p-7 paper-shadow">
+            <h2 className="font-display text-xl text-ink-900">College profile</h2>
+            <p className="mt-1 font-body text-sm text-slate-500">
+              Add your GPA, SAT, and other admissions stats here. This is now the source for target colleges.
+            </p>
 
           <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
             <label className="block">
@@ -348,14 +393,15 @@ export default function StudentDashboard() {
             <p className="mt-3 font-body text-xs text-ink-600">{saveMessage}</p>
           )}
 
-          <button
-            type="submit"
-            disabled={saving || !sessionToken}
-            className="mt-4 rounded-sm bg-ink-900 px-4 py-2 font-body text-xs font-medium text-white disabled:opacity-60"
-          >
-            {saving ? "Saving..." : "Save college profile"}
-          </button>
-        </form>
+            <button
+              type="submit"
+              disabled={saving || !sessionToken}
+              className="mt-4 rounded-sm bg-ink-900 px-4 py-2 font-body text-xs font-medium text-white disabled:opacity-60"
+            >
+              {saving ? "Saving..." : "Save college profile"}
+            </button>
+          </form>
+        )}
 
         <div className="mt-5 rounded-sm bg-white p-7 paper-shadow">
           <h2 className="font-display text-xl text-ink-900">Your submissions</h2>
@@ -466,7 +512,7 @@ export default function StudentDashboard() {
                                 ))}
                               </ul>
                             </div>
-                            {submission.attachment_storage_path && (
+                            {submission.attachment_storage_path && !isReadOnlyView && (
                               <div>
                                 <p className="font-body text-xs text-slate-500">Uploaded file</p>
                                 <button
@@ -540,7 +586,7 @@ export default function StudentDashboard() {
                   <p className="mt-1 font-body text-xs text-slate-500">Status: {appt.status}</p>
                   {appt.note && <p className="mt-1 font-body text-xs text-slate-500">{appt.note}</p>}
 
-                  {appt.status !== "completed" && (
+                  {!isReadOnlyView && appt.status !== "completed" && (
                     <div className="mt-3 flex flex-wrap items-center gap-2">
                       <select
                         value={rescheduleChoices[appt.id] || ""}

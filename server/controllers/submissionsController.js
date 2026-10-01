@@ -234,6 +234,16 @@ export async function createSubmission(req, res) {
 }
 
 export async function listSubmissions(req, res) {
+  const profiles = await ProfileModel.listAll();
+  await Promise.all(
+    profiles.map((profile) =>
+      Submission.recoverFromStorageForProfile({
+        profileId: profile.id,
+        email: profile.email,
+        name: profile.full_name,
+      })
+    )
+  );
   const submissions = await Submission.findAll();
   res.json({ submissions });
 }

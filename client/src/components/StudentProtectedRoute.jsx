@@ -6,6 +6,12 @@ export default function StudentProtectedRoute({ children, redirectTo = "/login" 
   const [status, setStatus] = useState("checking"); // checking | authed | anon
 
   useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("view_token")) {
+      setStatus("authed");
+      return;
+    }
+
     let active = true;
     getStudentSession().then((session) => {
       if (active) setStatus(session ? "authed" : "anon");

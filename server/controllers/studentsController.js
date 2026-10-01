@@ -2,32 +2,119 @@ import { Submission } from "../models/Submission.js";
 import { Appointment } from "../models/Appointment.js";
 import { Transaction } from "../models/Transaction.js";
 import { ProfileModel } from "../models/supabase/profileModel.js";
+import jwt from "jsonwebtoken";
+
+const STUDENT_VIEW_TOKEN_TTL_SECONDS = 60 * 15;
+
+function shapeProfile(profile) {
+  return {
+    id: profile.id,
+    email: profile.email,
+    full_name: profile.full_name,
+    phone_number: profile.phone_number,
+    credits: profile.credits,
+    created_at: profile.created_at,
+    gpa: profile.gpa,
+    sat_score: profile.sat_score,
+    act_score: profile.act_score,
+    graduation_year: profile.graduation_year,
+    high_school: profile.high_school,
+    intended_major: profile.intended_major,
+    ap_course_count: profile.ap_course_count,
+    class_rank_percentile: profile.class_rank_percentile,
+    extracurricular_summary: profile.extracurricular_summary,
+    target_colleges: Array.isArray(profile.target_colleges) ? profile.target_colleges : [],
+  };
+}
+
+async function buildStudentDashboardSnapshot(profileId) {
+  const profile = await ProfileModel.getById(profileId);
+  if (!profile) return null;
+
+  const [submissions, appointments, transactions] = await Promise.all([
+    Submission.listByProfile(profile.id, profile.email),
+    Appointment.listForStudent(profile.id, profile.email),
+    Transaction.listByEmail(profile.email),
+  ]);
+
+  return {
+    profile: shapeProfile(profile),
+    submissions,
+    appointments,
+    transactions,
+  };
+}
 
 export function me(req, res) {
   const { profile } = req.student;
   res.json({
-    profile: {
-      email: profile.email,
-      full_name: profile.full_name,
-      credits: profile.credits,
-      created_at: profile.created_at,
-      phone_number: profile.phone_number,
-      gpa: profile.gpa,
-      sat_score: profile.sat_score,
-      act_score: profile.act_score,
-      graduation_year: profile.graduation_year,
-      high_school: profile.high_school,
-      intended_major: profile.intended_major,
-      ap_course_count: profile.ap_course_count,
-      class_rank_percentile: profile.class_rank_percentile,
-      extracurricular_summary: profile.extracurricular_summary,
-      target_colleges: Array.isArray(profile.target_colleges) ? profile.target_colleges : [],
-    },
+    profile: shapeProfile(profile),
   });
+}
+
+export async function createStudentViewToken(req, res) {
+  try {
+    const profileId = (req.params.profileId || "").trim();
+    if (!profileId) {
+      return res.status(400).json({ error: "Student profile ID is required." });
+    }
+
+    const profile = await ProfileModel.getById(profileId);
+    if (!profile) {
+      return res.status(404).json({ error: "Student profile not found." });
+    }
+
+    const token = jwt.sign(
+      {
+        type: "student_view",
+        profile_id: profile.id,
+        admin_id: req.admin?.id,
+        admin_email: req.admin?.email,
+      },
+      process.env.JWT_SECRET,
+      { expiresIn: STUDENT_VIEW_TOKEN_TTL_SECONDS }
+    );
+
+    res.json({ view_token: token, expires_in: STUDENT_VIEW_TOKEN_TTL_SECONDS, profile_id: profile.id });
+  } catch (err) {
+    res.status(400).json({ error: err.message || "Unable to create view-as token." });
+  }
+}
+
+export async function viewAsStudentDashboard(req, res) {
+  const viewToken = (req.query.view_token || "").toString().trim();
+  if (!viewToken) {
+    return res.status(401).json({ error: "Missing view token." });
+  }
+
+  try {
+    const payload = jwt.verify(viewToken, process.env.JWT_SECRET);
+    if (payload?.type !== "student_view" || !payload?.profile_id) {
+      return res.status(401).json({ error: "Invalid view token." });
+    }
+
+    const snapshot = await buildStudentDashboardSnapshot(payload.profile_id);
+    if (!snapshot) {
+      return res.status(404).json({ error: "Student profile not found." });
+    }
+
+    return res.json({
+      ...snapshot,
+      read_only: true,
+      viewed_by: payload.admin_email || null,
+    });
+  } catch (err) {
+    return res.status(401).json({ error: "View session expired. Please reopen from the admin dashboard." });
+  }
 }
 
 export async function mySubmissions(req, res) {
   const { profile } = req.student;
+  await Submission.recoverFromStorageForProfile({
+    profileId: profile.id,
+    email: profile.email,
+    name: profile.full_name,
+  });
   const submissions = await Submission.listByProfile(profile.id, profile.email);
   res.json({ submissions });
 }
@@ -69,8 +156,18 @@ export async function getStudentProfileAdmin(req, res) {
 
 export async function getStudentRosterAdmin(req, res) {
   try {
-    const [profiles, allSubmissions, allAppointments] = await Promise.all([
-      ProfileModel.listAll(),
+    const profiles = await ProfileModel.listAll();
+    await Promise.all(
+      profiles.map((profile) =>
+        Submission.recoverFromStorageForProfile({
+          profileId: profile.id,
+          email: profile.email,
+          name: profile.full_name,
+        })
+      )
+    );
+
+    const [allSubmissions, allAppointments] = await Promise.all([
       Submission.findAll(),
       Appointment.list(),
     ]);
@@ -114,8 +211,7 @@ export async function getStudentRosterAdmin(req, res) {
       );
 
       const recentSubmissions = [...submissions]
-        .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
-        .slice(0, 8);
+        .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
       const appointmentHistory = [...appointments]
         .sort((a, b) => new Date(b.createdAt || b.updatedAt || 0) - new Date(a.createdAt || a.updatedAt || 0));

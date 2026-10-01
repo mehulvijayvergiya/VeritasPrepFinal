@@ -24,6 +24,10 @@ function sortByDateTimeAsc(a, b) {
   return left.localeCompare(right);
 }
 
+function normalizeEmail(value) {
+  return (value || "").toLowerCase().trim();
+}
+
 function toSlotView(slot, appointments) {
   const bookedAppointment = appointments.find(
     (item) => item.slotId === slot.id && item.status !== "cancelled"
@@ -72,10 +76,11 @@ export const Appointment = {
     await db.read();
     const all = db.data.appointments || [];
     const slots = db.data.appointmentSlots || [];
+    const normalizedStudentEmail = normalizeEmail(studentEmail);
     return all
       .filter((item) => {
         if (profileId && item.profileId === profileId) return true;
-        return studentEmail && item.studentEmail === studentEmail;
+        return normalizedStudentEmail && normalizeEmail(item.studentEmail) === normalizedStudentEmail;
       })
       .map((appointment) => withSlot(appointment, slots))
       .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
@@ -136,7 +141,7 @@ export const Appointment = {
       time: slot.time,
       note: payload.note || "",
       studentName: payload.studentName || "Student",
-      studentEmail: payload.studentEmail || "",
+      studentEmail: normalizeEmail(payload.studentEmail),
       profileId: payload.profileId || null,
       vc_cost: payload.vcCost ?? PRICES.meeting_15min,
       vc_charged: false,
@@ -199,7 +204,7 @@ export const Appointment = {
     if (!appointment) return null;
 
     const ownsByProfile = profileId && appointment.profileId === profileId;
-    const ownsByEmail = studentEmail && appointment.studentEmail === studentEmail;
+    const ownsByEmail = normalizeEmail(studentEmail) && normalizeEmail(appointment.studentEmail) === normalizeEmail(studentEmail);
     if (!ownsByProfile && !ownsByEmail) {
       throw new Error("You can only reschedule your own appointments.");
     }

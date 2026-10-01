@@ -84,8 +84,12 @@ export const api = {
 
   // Student account (Supabase-authenticated)
   getStudentMe: (studentToken) => request("/students/me", { token: studentToken }),
+  getStudentDashboardView: (viewToken) =>
+    request(`/students/view-as/dashboard?view_token=${encodeURIComponent(viewToken)}`),
   getStudentProfile: (profileId) => request(`/students/profile/${profileId}`, { auth: true }),
   getStudentRoster: () => request("/students/roster", { auth: true }),
+  createStudentViewToken: (profileId) =>
+    request(`/students/${profileId}/view-token`, { method: "POST", auth: true }),
   updateStudentMe: (payload, studentToken) =>
     request("/students/me", { method: "PATCH", body: payload, token: studentToken }),
   getStudentSubmissions: (studentToken) => request("/students/submissions", { token: studentToken }),
