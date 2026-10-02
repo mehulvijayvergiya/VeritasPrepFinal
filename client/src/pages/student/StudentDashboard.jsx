@@ -54,6 +54,24 @@ export default function StudentDashboard() {
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
+  function hasFeedbackAttachment(submission) {
+    if (!submission) return false;
+    return Boolean(
+      submission.feedback_attachment_storage_path ||
+        submission.feedback_attachment_path ||
+        submission.feedback_attachment_original_name ||
+        submission.feedback_attachment_filename
+    );
+  }
+
+  function getFeedbackAttachmentName(submission) {
+    return (
+      submission?.feedback_attachment_original_name ||
+      submission?.feedback_attachment_filename ||
+      "feedback.pdf"
+    );
+  }
+
   useEffect(() => {
     let active = true;
     (async () => {
@@ -607,7 +625,7 @@ export default function StudentDashboard() {
                           <div className="mt-4 space-y-3">
                             <div className="rounded-sm border border-hairline bg-parchment p-3">
                               <p className="font-body text-xs text-slate-500">Feedback PDF</p>
-                              {submission.feedback_attachment_storage_path ? (
+                              {hasFeedbackAttachment(submission) ? (
                                 <>
                                   <button
                                     onClick={() => handleDownloadFeedback(submission.id)}
@@ -617,7 +635,7 @@ export default function StudentDashboard() {
                                     {downloadingFeedbackSubmissionId === submission.id ? "Preparing file..." : "Open feedback PDF"}
                                   </button>
                                   <p className="mt-1 font-body text-xs text-slate-500">
-                                    {submission.feedback_attachment_original_name || submission.feedback_attachment_filename || "feedback.pdf"}
+                                    {getFeedbackAttachmentName(submission)}
                                   </p>
                                 </>
                               ) : (
