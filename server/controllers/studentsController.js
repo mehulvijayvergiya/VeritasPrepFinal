@@ -4,6 +4,7 @@ import { Transaction } from "../models/Transaction.js";
 import { CreditRequest } from "../models/CreditRequest.js";
 import { ProfileModel } from "../models/supabase/profileModel.js";
 import { getSupabase } from "../config/supabaseClient.js";
+import { PRICES } from "../config/pricing.js";
 import jwt from "jsonwebtoken";
 
 const STUDENT_VIEW_TOKEN_TTL_SECONDS = 60 * 15;
@@ -77,6 +78,76 @@ function mergeTransactions(localTransactions, supabaseTransactions) {
   return merged.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
 }
 
+function resolveSubmissionCost(submission) {
+  const explicit = Number(submission?.vc_cost);
+  if (Number.isFinite(explicit) && explicit > 0) return explicit;
+
+  const key = submission?.service_key;
+  if (key && Number.isFinite(Number(PRICES[key]))) {
+    return Number(PRICES[key]);
+  }
+  if (key === "meeting" && Number.isFinite(Number(PRICES.meeting_15min))) {
+    return Number(PRICES.meeting_15min);
+  }
+
+  const count = Number(submission?.word_count);
+  if (Number.isInteger(count) && count > 0) {
+    if (count <= 300) return Number(PRICES.essay_short || 0);
+    if (count <= 500) return Number(PRICES.essay_medium || 0);
+    return Number(PRICES.essay_long || 0);
+  }
+
+  const label = (submission?.service_label || "").toLowerCase();
+  if (label.includes("301-500")) return Number(PRICES.essay_medium || 0);
+  if (label.includes("<= 300") || label.includes("1-300")) return Number(PRICES.essay_short || 0);
+  if (label.includes("> 500") || label.includes("common app") || label.includes("501+")) {
+    return Number(PRICES.essay_long || 0);
+  }
+  if (label.includes("activity")) return Number(PRICES.activities || 0);
+  if (label.includes("meeting") || label.includes("15-min")) return Number(PRICES.meeting_15min || 0);
+
+  return 0;
+}
+
+function buildInferredSubmissionSpends({ submissions, email, existingTransactions }) {
+  const normalizedEmail = normalizeEmail(email);
+  const txList = existingTransactions || [];
+
+  const inferred = (submissions || [])
+    .filter((submission) => normalizeEmail(submission.email) === normalizedEmail)
+    .filter((submission) => submission.status === "completed" || submission.status === "in_review")
+    .map((submission) => {
+      const cost = resolveSubmissionCost(submission);
+      if (!(cost > 0)) return null;
+
+      const note = `Credits spent for ${submission.service_label || submission.service_key || "submission"}`;
+      const hasMatchingTx = txList.some((tx) => {
+        if (normalizeEmail(tx.email) !== normalizedEmail) return false;
+        if (tx.type !== "credit_spend") return false;
+        if (Math.abs(Number(tx.amount || 0)) !== Math.abs(cost)) return false;
+        const txNote = String(tx.note || "").toLowerCase();
+        return txNote.includes((submission.service_label || submission.service_key || "").toLowerCase());
+      });
+
+      if (hasMatchingTx) return null;
+
+      return {
+        id: `submission-spend-${submission.id}`,
+        source: "submission_inferred",
+        email: submission.email,
+        type: "credit_spend",
+        amount: -Math.abs(cost),
+        note,
+        status: "completed",
+        created_at:
+          submission.vc_charged_at || submission.updated_at || submission.created_at || new Date().toISOString(),
+      };
+    })
+    .filter(Boolean);
+
+  return inferred;
+}
+
 async function fetchSupabaseCreditRequests() {
   try {
     const supabase = getSupabase();
@@ -138,7 +209,7 @@ async function fetchSupabaseTransactionsAll() {
   }
 }
 
-function buildCreditHistoryEntries({ transactions, creditRequests, email }) {
+function buildCreditHistoryEntries({ transactions, creditRequests, submissions, email }) {
   const normalizedEmail = (email || "").toLowerCase().trim();
   const txList = (transactions || [])
     .filter((item) => ((item.email || "").toLowerCase().trim() === normalizedEmail))
@@ -177,7 +248,13 @@ function buildCreditHistoryEntries({ transactions, creditRequests, email }) {
       request_id: item.id,
     }));
 
-  return [...txList, ...requestBackfill].sort(
+  const inferredSubmissionSpends = buildInferredSubmissionSpends({
+    submissions,
+    email,
+    existingTransactions: txList,
+  });
+
+  return [...txList, ...requestBackfill, ...inferredSubmissionSpends].sort(
     (a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0)
   );
 }
@@ -249,6 +326,7 @@ async function buildStudentDashboardSnapshot(profileId) {
     transactions: buildCreditHistoryEntries({
       transactions,
       creditRequests: allCreditRequests,
+      submissions,
       email: profile.email,
     }),
     purchase_requests: buildCreditPurchaseRequestEntries({
@@ -447,11 +525,13 @@ export async function myTransactions(req, res) {
     Promise.resolve(CreditRequest.findAll()),
     fetchSupabaseCreditRequests(),
   ]);
+  const submissions = await Submission.listByProfile(profile.id, profile.email);
   const transactions = mergeTransactions(localTransactions, supabaseTransactions);
   const allCreditRequests = mergeCreditRequests(localCreditRequests, supabaseCreditRequests);
   const history = buildCreditHistoryEntries({
     transactions,
     creditRequests: allCreditRequests,
+    submissions,
     email: profile.email,
   });
   const purchaseRequests = buildCreditPurchaseRequestEntries({
@@ -550,6 +630,7 @@ export async function getStudentRosterAdmin(req, res) {
       const creditTransactions = buildCreditHistoryEntries({
         transactions: allTransactions,
         creditRequests: allCreditRequests,
+        submissions,
         email: profile.email,
       });
 
