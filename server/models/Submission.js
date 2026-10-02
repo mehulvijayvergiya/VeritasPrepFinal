@@ -49,19 +49,61 @@ function hydrateSubmission(submission) {
 }
 
 function mapSupabaseSubmission(row) {
-  return hydrateSubmission({
+  const mapped = {
     ...row,
     attachment_storage_path: row.attachment_storage_path || row.attachment_path || null,
-    feedback_attachment_storage_path:
-      row.feedback_attachment_storage_path || row.feedback_attachment_path || null,
-  });
+  };
+
+  if ("feedback_attachment_storage_path" in row || "feedback_attachment_path" in row) {
+    mapped.feedback_attachment_storage_path =
+      row.feedback_attachment_storage_path || row.feedback_attachment_path || null;
+  }
+  if ("feedback_attachment_filename" in row) {
+    mapped.feedback_attachment_filename = row.feedback_attachment_filename || null;
+  }
+  if ("feedback_attachment_original_name" in row) {
+    mapped.feedback_attachment_original_name = row.feedback_attachment_original_name || null;
+  }
+  if ("feedback_attachment_url" in row) {
+    mapped.feedback_attachment_url = row.feedback_attachment_url || null;
+  }
+
+  return hydrateSubmission(mapped);
+}
+
+function mergeSubmissionRecords(existing, incoming) {
+  if (!existing) return incoming;
+
+  const merged = { ...existing, ...incoming };
+
+  const preserveIfIncomingEmpty = [
+    "attachment_storage_path",
+    "attachment_filename",
+    "attachment_original_name",
+    "feedback_attachment_storage_path",
+    "feedback_attachment_filename",
+    "feedback_attachment_original_name",
+    "feedback_attachment_url",
+    "vc_cost",
+    "vc_charged",
+    "vc_charged_at",
+  ];
+
+  for (const field of preserveIfIncomingEmpty) {
+    const value = incoming[field];
+    if (value === undefined || value === null || value === "") {
+      merged[field] = existing[field];
+    }
+  }
+
+  return merged;
 }
 
 function extractMissingColumn(error) {
   const message = String(error?.message || "");
   const explicit = message.match(/column\s+submissions\.([a-zA-Z0-9_]+)\s+does not exist/i);
   if (explicit) return explicit[1];
-  const quoted = message.match(/Could not find '([^']+)' column/i);
+  const quoted = message.match(/Could not find(?:\s+the)?\s+'([^']+)'\s+column/i);
   return quoted ? quoted[1] : null;
 }
 
@@ -100,7 +142,7 @@ async function refreshSubmissionsFromSupabase() {
     const id = getSubmissionId(mapped);
     if (Number.isFinite(id)) {
       const existing = mergedById.get(id);
-      mergedById.set(id, existing ? { ...existing, ...mapped } : mapped);
+      mergedById.set(id, existing ? mergeSubmissionRecords(existing, mapped) : mapped);
     }
   }
 

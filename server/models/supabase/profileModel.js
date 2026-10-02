@@ -17,7 +17,7 @@ const EDITABLE_FIELDS = [
 
 function extractMissingColumn(error) {
   const message = String(error?.message || "");
-  const match = message.match(/Could not find '([^']+)' column/i);
+  const match = message.match(/Could not find(?:\s+the)?\s+'([^']+)'\s+column/i);
   return match ? match[1] : null;
 }
 
