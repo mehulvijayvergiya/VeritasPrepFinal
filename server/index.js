@@ -33,6 +33,12 @@ app.use("/api/transactions", transactionsRoutes);
 // Centralized error handler (catches anything thrown synchronously in handlers)
 app.use((err, req, res, next) => {
   console.error(err);
+
+  const message = String(err?.message || "");
+  if (message === "Only PDF attachments are allowed." || message.toLowerCase().includes("file too large")) {
+    return res.status(400).json({ error: message });
+  }
+
   res.status(500).json({ error: "Something went wrong on our end." });
 });
 
