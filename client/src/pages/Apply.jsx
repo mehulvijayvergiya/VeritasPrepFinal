@@ -45,7 +45,7 @@ function getEssayRange(serviceKey) {
     return { min: 301, max: 500, label: "301-500 words" };
   }
   if (serviceKey === "essay_long") {
-    return { min: 501, max: 650, label: "501-650 words" };
+    return { min: 501, max: null, label: "501+ words" };
   }
   return null;
 }
@@ -59,10 +59,7 @@ function getSuggestedEssayService(wordCount) {
   if (count <= 500) {
     return { key: "essay_medium", label: "Supplemental Essay (301-500 words)", range: "301-500" };
   }
-  if (count <= 650) {
-    return { key: "essay_long", label: "Essay (> 500 words / Common App)", range: "501-650" };
-  }
-  return null;
+  return { key: "essay_long", label: "Essay (> 500 words / Common App)", range: "501+" };
 }
 
 function getEssayWordCountWarning(item) {
@@ -71,10 +68,8 @@ function getEssayWordCountWarning(item) {
   const range = getEssayRange(item.key);
   const count = Number(item.essayWordCount);
   if (!range || !Number.isInteger(count) || count <= 0) return "";
-  if (count < range.min || count > range.max) {
-    if (count > 650) {
-      return `${item.label} requires ${range.label}. Essays above 650 words are not supported here. Please shorten this draft to 650 or less.`;
-    }
+  const outsideRange = count < range.min || (range.max !== null && count > range.max);
+  if (outsideRange) {
     const suggested = getSuggestedEssayService(count);
     if (suggested && suggested.key !== item.key) {
       return `${item.label} requires ${range.label}. This should be ${suggested.label} (${suggested.range}).`;

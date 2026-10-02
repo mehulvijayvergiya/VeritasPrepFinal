@@ -189,6 +189,36 @@ function SubmissionsTab({ submissions, loading, onUpdate, onOpenStudentProfile }
               </div>
             </div>
 
+            {(selected.essay_for_college || selected.essay_prompt || selected.word_count) && (
+              <div className="mt-8">
+                <p className="font-mono text-xs uppercase tracking-widest text-gold-600">Essay details</p>
+                <div className="mt-2 rounded-sm border border-hairline bg-white p-6">
+                  <div className="space-y-3">
+                    <div>
+                      <p className="font-body text-xs uppercase tracking-wide text-slate-500">College</p>
+                      <p className="mt-1 font-body text-sm text-ink-900">
+                        {selected.essay_for_college || selected.colleges || "Not provided"}
+                      </p>
+                    </div>
+
+                    {selected.word_count !== null && selected.word_count !== undefined && selected.word_count !== "" && (
+                      <div>
+                        <p className="font-body text-xs uppercase tracking-wide text-slate-500">Word count</p>
+                        <p className="mt-1 font-body text-sm text-ink-900">{selected.word_count}</p>
+                      </div>
+                    )}
+
+                    <div>
+                      <p className="font-body text-xs uppercase tracking-wide text-slate-500">Prompt</p>
+                      <p className="mt-1 whitespace-pre-wrap font-body text-sm text-ink-900">
+                        {selected.essay_prompt || "Not provided"}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
             <div className="mt-8">
               <p className="font-mono text-xs uppercase tracking-widest text-gold-600">Checklist</p>
               <div className="mt-2 rounded-sm border border-hairline bg-white p-6">

@@ -34,6 +34,16 @@ function toSafeSegment(value) {
     .slice(0, 80);
 }
 
+function toReadableFolderSegment(value) {
+  const cleaned = (value || "")
+    .toString()
+    .trim()
+    .replace(/[\\/:*?"<>|]+/g, " ")
+    .replace(/\s+/g, " ")
+    .slice(0, 80);
+  return cleaned || null;
+}
+
 function parseChecklist(raw) {
   if (!raw) return [];
   if (Array.isArray(raw)) return raw;
@@ -98,13 +108,14 @@ async function ensureSubmissionBucket() {
   return true;
 }
 
-async function uploadPdfToStorage(file, profileId, email, serviceKey, submissionTitle) {
+async function uploadPdfToStorage(file, studentName, profileId, email, serviceKey, submissionTitle) {
   if (!file) return null;
   await ensureSubmissionBucket();
 
   const ext = file.originalname?.split(".").pop() || "pdf";
   const now = new Date();
-  const studentFolder = toSafeSegment(profileId || email || "student");
+  const studentFolder =
+    toReadableFolderSegment(studentName) || toSafeSegment(profileId || email || "student");
   const serviceFolder = toSafeSegment(serviceKey || "service");
   const title = toSafeSegment(submissionTitle || "submission");
   const safeName = `${title}-${Date.now()}.${ext}`;
@@ -215,6 +226,7 @@ export async function createSubmission(req, res) {
   try {
     uploadMeta = await uploadPdfToStorage(
       req.file,
+      resolvedName,
       studentProfile?.id || profile_id,
       resolvedEmail,
       service_key,
