@@ -78,7 +78,6 @@ export default function Nav() {
           <a href="/#faq" className="ink-underline pb-1">FAQ</a>
           <Link to="/contact" className="ink-underline pb-1">Contact</Link>
           <Link to="/credits" className="ink-underline pb-1">Credits</Link>
-          {!session && <Link to="/login" className="ink-underline pb-1">Login</Link>}
         </nav>
 
         <div className="flex items-center gap-3">
@@ -122,7 +121,7 @@ export default function Nav() {
               onClick={() => navigate("/login")}
               className="rounded-sm bg-ink-900 px-5 py-2.5 font-body text-sm font-medium text-parchment transition hover:bg-ink-600"
             >
-              Login to Apply
+              Sign up/Login
             </button>
           )}
 
@@ -148,9 +147,7 @@ export default function Nav() {
                     Sign out
                   </button>
                 </>
-              ) : (
-                <Link to="/login" className="block py-1.5">Login</Link>
-              )}
+              ) : null}
             </div>
           </details>
         </div>

@@ -226,13 +226,16 @@ export default function StudentDashboard() {
           </h1>
           <div className="flex items-center gap-4">
             {!isReadOnlyView && (
-              <Link to="/" className="font-body text-sm font-medium text-ink-700 ink-underline">
+              <Link
+                to="/"
+                className="rounded-sm border border-ink-900 px-3 py-1.5 font-body text-sm font-medium text-ink-900 transition hover:bg-ink-900 hover:text-white"
+              >
                 Home
               </Link>
             )}
             <button
               onClick={handleLogout}
-              className="font-body text-sm font-medium text-ink-400 ink-underline"
+              className="rounded-sm border border-hairline px-3 py-1.5 font-body text-sm font-medium text-ink-500 transition hover:border-red-200 hover:bg-red-50 hover:text-red-700"
             >
               {isReadOnlyView ? "Exit view" : "Sign out"}
             </button>

@@ -1161,13 +1161,13 @@ export default function AdminDashboard() {
         <div className="flex items-center gap-4">
           <button
             onClick={() => navigate("/")}
-            className="ink-underline font-body text-sm text-ink-600"
+            className="rounded-sm border border-ink-900 px-3 py-1.5 font-body text-sm font-medium text-ink-900 transition hover:bg-ink-900 hover:text-white"
           >
             Home
           </button>
           <button
             onClick={() => { clearToken(); navigate("/login"); }}
-            className="ink-underline font-body text-sm text-ink-600"
+            className="rounded-sm border border-hairline px-3 py-1.5 font-body text-sm font-medium text-ink-500 transition hover:border-red-200 hover:bg-red-50 hover:text-red-700"
           >
             Sign out
           </button>

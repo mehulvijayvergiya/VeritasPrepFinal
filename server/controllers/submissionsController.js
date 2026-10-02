@@ -55,8 +55,21 @@ function normalizeChecklist(rawChecklist) {
     .filter((item) => item.label.length > 0);
 }
 
-function buildSubmissionTitle(name, serviceLabel) {
-  return `${name} - ${serviceLabel}`;
+function buildSubmissionTitle(name, serviceLabel, customName) {
+  const cleanCustom = (customName || "").toString().trim();
+  return cleanCustom ? `${name} - ${serviceLabel} - ${cleanCustom}` : `${name} - ${serviceLabel}`;
+}
+
+function withSubmissionNameMarker(notes, customName) {
+  const cleanCustom = (customName || "").toString().trim();
+  if (!cleanCustom) return (notes || "").toString().trim();
+
+  const existing = (notes || "").toString().trim();
+  const marker = `Submission name: ${cleanCustom}`;
+  if (existing.toLowerCase().includes("submission name:")) {
+    return existing;
+  }
+  return existing ? `${existing}\n\n${marker}` : marker;
 }
 
 function submissionBelongsToStudent(submission, studentProfile) {
@@ -139,6 +152,7 @@ export async function createSubmission(req, res) {
     email,
     colleges,
     notes,
+    submission_custom_name,
     service_key,
     profile_id,
     submission_checklist,
@@ -195,7 +209,7 @@ export async function createSubmission(req, res) {
 
   const vcCost = PRICES[priceKey];
   const serviceLabel = SERVICE_LABEL_MAP[service_key] || req.body.service_label || service_key;
-  const submissionTitle = buildSubmissionTitle(resolvedName, serviceLabel);
+  const submissionTitle = buildSubmissionTitle(resolvedName, serviceLabel, submission_custom_name);
 
   let uploadMeta = null;
   try {
@@ -214,7 +228,7 @@ export async function createSubmission(req, res) {
     name: resolvedName,
     email: resolvedEmail,
     colleges: resolvedColleges,
-    notes: (notes || "").trim(),
+    notes: withSubmissionNameMarker(notes, submission_custom_name),
     essay_for_college: isEssayService ? resolvedEssayForCollege : null,
     word_count: isEssayService ? resolvedWordCount : null,
     essay_prompt: isEssayService ? resolvedEssayPrompt : null,

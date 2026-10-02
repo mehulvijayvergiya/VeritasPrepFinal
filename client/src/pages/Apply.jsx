@@ -144,6 +144,7 @@ export default function Apply() {
         key: service.key,
         label: service.label,
         vc: service.vc,
+        submissionCustomName: "",
         file: null,
         slotId: "",
         essayForCollege: "",
@@ -219,6 +220,9 @@ export default function Apply() {
       fieldErrors.cart =
         "Each essay submission must include the college, exact word count, and prompt.";
     }
+    if (cart.some((item) => !item.submissionCustomName?.trim())) {
+      fieldErrors.cart = "Give each submission a short name (example: BYU Essay 1).";
+    }
     if (
       cart.some(
         (item) =>
@@ -259,6 +263,8 @@ export default function Apply() {
         formData.append("notes", notes.trim());
         formData.append("service_key", item.key);
         formData.append("service_label", item.label);
+        formData.append("submission_custom_name", item.submissionCustomName.trim());
+        formData.append("colleges", isEssayService(item.key) ? item.essayForCollege.trim() : "Not provided");
         formData.append("submission_checklist", JSON.stringify(item.checklist || []));
         if (isEssayService(item.key)) {
           formData.append("essay_for_college", item.essayForCollege.trim());
@@ -439,6 +445,20 @@ export default function Apply() {
                         <div className="mt-3 grid grid-cols-1 gap-3 rounded-sm border border-hairline bg-parchment p-3">
                           <label className="block">
                             <span className="font-body text-xs text-slate-500">
+                              Submission name <span className="text-red-700">(required)</span>
+                            </span>
+                            <input
+                              value={item.submissionCustomName || ""}
+                              onChange={(e) =>
+                                setEssayField(item.localId, "submissionCustomName", e.target.value)
+                              }
+                              className="mt-1.5 w-full rounded-sm border border-hairline bg-white px-3 py-2 font-body text-xs text-ink-900"
+                              placeholder="e.g., BYU Essay 1"
+                            />
+                          </label>
+
+                          <label className="block">
+                            <span className="font-body text-xs text-slate-500">
                               College this essay is for <span className="text-red-700">(required)</span>
                             </span>
                             <input
@@ -484,10 +504,26 @@ export default function Apply() {
                                 setEssayField(item.localId, "essayPrompt", e.target.value)
                               }
                               className="mt-1.5 min-h-[84px] w-full rounded-sm border border-hairline bg-white px-3 py-2 font-body text-xs text-ink-900"
-                              placeholder="Paste the exact prompt text here"
+                              placeholder="Paste the exact prompt text for this specific essay"
                             />
                           </label>
                         </div>
+                      )}
+
+                      {!isEssayService(item.key) && (
+                        <label className="mt-3 block">
+                          <span className="font-body text-xs text-slate-500">
+                            Submission name <span className="text-red-700">(required)</span>
+                          </span>
+                          <input
+                            value={item.submissionCustomName || ""}
+                            onChange={(e) =>
+                              setEssayField(item.localId, "submissionCustomName", e.target.value)
+                            }
+                            className="mt-1.5 w-full rounded-sm border border-hairline bg-white px-3 py-2 font-body text-xs text-ink-900"
+                            placeholder="e.g., Activities Draft 2"
+                          />
+                        </label>
                       )}
 
                       <div className="mt-4 rounded-sm border border-hairline bg-parchment p-3">

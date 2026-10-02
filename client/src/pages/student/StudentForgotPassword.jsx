@@ -26,7 +26,10 @@ export default function StudentForgotPassword() {
     <div className="flex min-h-screen items-center justify-center bg-ink-900 px-6">
       <div className="w-full max-w-sm">
         <div className="mb-4 text-center">
-          <Link to="/" className="font-body text-xs font-medium text-white ink-underline">
+          <Link
+            to="/"
+            className="inline-block rounded-sm border border-white/70 px-4 py-1.5 font-body text-xs font-medium text-white transition hover:bg-white hover:text-ink-900"
+          >
             Back to Home
           </Link>
         </div>

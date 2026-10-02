@@ -305,7 +305,7 @@ export default function Credits() {
                 to="/login"
                 className="mt-4 inline-block rounded-sm bg-ink-900 px-5 py-2.5 font-body text-sm font-medium text-white transition hover:bg-ink-600"
               >
-                Login
+                Sign up/Login
               </Link>
             </div>
           )}

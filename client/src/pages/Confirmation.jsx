@@ -22,7 +22,7 @@ export default function Confirmation() {
         </p>
         <Link
           to="/"
-          className="ink-underline mt-8 font-body text-sm font-medium text-ink-900"
+          className="mt-8 inline-block rounded-sm border border-ink-900 px-4 py-2 font-body text-sm font-medium text-ink-900 transition hover:bg-ink-900 hover:text-white"
         >
           ← Back to home
         </Link>

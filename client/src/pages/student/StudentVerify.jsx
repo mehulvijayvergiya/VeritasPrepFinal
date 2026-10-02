@@ -31,7 +31,10 @@ export default function StudentVerify() {
     <div className="flex min-h-screen items-center justify-center bg-ink-900 px-6">
       <div className="w-full max-w-sm rounded-sm bg-white p-7 text-center paper-shadow">
         <div className="mb-3">
-          <Link to="/" className="font-body text-xs font-medium text-ink-600 ink-underline">
+          <Link
+            to="/"
+            className="inline-block rounded-sm border border-ink-900 px-3 py-1.5 font-body text-xs font-medium text-ink-900 transition hover:bg-ink-900 hover:text-white"
+          >
             Back to Home
           </Link>
         </div>
