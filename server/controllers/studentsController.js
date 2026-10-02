@@ -8,6 +8,136 @@ import jwt from "jsonwebtoken";
 
 const STUDENT_VIEW_TOKEN_TTL_SECONDS = 60 * 15;
 
+function normalizeEmail(value) {
+  return (value || "").toLowerCase().trim();
+}
+
+function toRequestLike(row) {
+  return {
+    id: row.id,
+    email: normalizeEmail(row.email),
+    amount_usd: Number(row.amount_usd || 0),
+    vc: Number(row.vc || 0),
+    method: row.method || "",
+    note: row.note || "",
+    status: row.status || "pending",
+    created_at: row.created_at || new Date().toISOString(),
+    resolved_at: row.resolved_at || null,
+    manual_email_sent: Boolean(row.manual_email_sent),
+    manual_email_sent_at: row.manual_email_sent_at || null,
+  };
+}
+
+function toTransactionLike(row) {
+  return {
+    id: row.id,
+    email: normalizeEmail(row.email),
+    type: row.type,
+    amount: row.amount,
+    note: row.note || "",
+    status: row.status || "completed",
+    created_at: row.created_at || new Date().toISOString(),
+  };
+}
+
+function mergeCreditRequests(localRequests, supabaseRequests) {
+  const merged = [...(localRequests || []).map(toRequestLike)];
+  const seen = new Set(
+    merged.map((item) => `${normalizeEmail(item.email)}|${item.amount_usd}|${item.vc}|${item.method}|${item.status}|${item.created_at}`)
+  );
+
+  for (const row of supabaseRequests || []) {
+    const normalized = toRequestLike(row);
+    const key = `${normalizeEmail(normalized.email)}|${normalized.amount_usd}|${normalized.vc}|${normalized.method}|${normalized.status}|${normalized.created_at}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    merged.push(normalized);
+  }
+
+  return merged.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+}
+
+function mergeTransactions(localTransactions, supabaseTransactions) {
+  const merged = [...(localTransactions || []).map(toTransactionLike)];
+  const seen = new Set(
+    merged.map(
+      (item) =>
+        `${normalizeEmail(item.email)}|${item.type}|${Number(item.amount || 0)}|${item.status || "completed"}|${item.created_at}`
+    )
+  );
+
+  for (const row of supabaseTransactions || []) {
+    const normalized = toTransactionLike(row);
+    const key = `${normalizeEmail(normalized.email)}|${normalized.type}|${Number(normalized.amount || 0)}|${normalized.status}|${normalized.created_at}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    merged.push(normalized);
+  }
+
+  return merged.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+}
+
+async function fetchSupabaseCreditRequests() {
+  try {
+    const supabase = getSupabase();
+    const { data, error } = await supabase
+      .from("credit_requests")
+      .select("id,email,amount_usd,vc,method,note,status,created_at,resolved_at,manual_email_sent,manual_email_sent_at")
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.warn("Unable to read Supabase credit requests:", error.message);
+      return [];
+    }
+
+    return data || [];
+  } catch (err) {
+    console.warn("Supabase credit request fetch failed:", err.message);
+    return [];
+  }
+}
+
+async function fetchSupabaseTransactionsByEmail(email) {
+  try {
+    const supabase = getSupabase();
+    const { data, error } = await supabase
+      .from("transactions")
+      .select("id,email,type,amount,note,status,created_at")
+      .eq("email", normalizeEmail(email))
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.warn("Unable to read Supabase transactions:", error.message);
+      return [];
+    }
+
+    return data || [];
+  } catch (err) {
+    console.warn("Supabase transaction fetch failed:", err.message);
+    return [];
+  }
+}
+
+async function fetchSupabaseTransactionsAll() {
+  try {
+    const supabase = getSupabase();
+    const { data, error } = await supabase
+      .from("transactions")
+      .select("id,email,type,amount,note,status,created_at")
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.warn("Unable to read Supabase transactions:", error.message);
+      return [];
+    }
+
+    return data || [];
+  } catch (err) {
+    console.warn("Supabase transaction fetch failed:", err.message);
+    return [];
+  }
+}
+
 function buildCreditHistoryEntries({ transactions, creditRequests, email }) {
   const normalizedEmail = (email || "").toLowerCase().trim();
   const txList = (transactions || [])
@@ -98,13 +228,19 @@ async function buildStudentDashboardSnapshot(profileId) {
 
   await CreditRequest.backfillApprovedTransactions();
 
-  const allCreditRequests = CreditRequest.findAll();
+  const [localCreditRequests, supabaseCreditRequests] = await Promise.all([
+    Promise.resolve(CreditRequest.findAll()),
+    fetchSupabaseCreditRequests(),
+  ]);
+  const allCreditRequests = mergeCreditRequests(localCreditRequests, supabaseCreditRequests);
 
-  const [submissions, appointments, transactions] = await Promise.all([
+  const [submissions, appointments, localTransactions, supabaseTransactions] = await Promise.all([
     Submission.listByProfile(profile.id, profile.email),
     Appointment.listForStudent(profile.id, profile.email),
     Transaction.listByEmail(profile.email),
+    fetchSupabaseTransactionsByEmail(profile.email),
   ]);
+  const transactions = mergeTransactions(localTransactions, supabaseTransactions);
 
   return {
     profile: shapeProfile(profile),
@@ -305,10 +441,14 @@ export async function mySubmissions(req, res) {
 export async function myTransactions(req, res) {
   const { profile } = req.student;
   await CreditRequest.backfillApprovedTransactions();
-  const [transactions, allCreditRequests] = await Promise.all([
+  const [localTransactions, supabaseTransactions, localCreditRequests, supabaseCreditRequests] = await Promise.all([
     Transaction.listByEmail(profile.email),
+    fetchSupabaseTransactionsByEmail(profile.email),
     Promise.resolve(CreditRequest.findAll()),
+    fetchSupabaseCreditRequests(),
   ]);
+  const transactions = mergeTransactions(localTransactions, supabaseTransactions);
+  const allCreditRequests = mergeCreditRequests(localCreditRequests, supabaseCreditRequests);
   const history = buildCreditHistoryEntries({
     transactions,
     creditRequests: allCreditRequests,
@@ -376,10 +516,14 @@ export async function getStudentRosterAdmin(req, res) {
       Submission.findAll(),
       Appointment.list(),
     ]);
-    const [allTransactions, allCreditRequests] = await Promise.all([
+    const [localTransactions, supabaseTransactions, localCreditRequests, supabaseCreditRequests] = await Promise.all([
       Transaction.list(),
+      fetchSupabaseTransactionsAll(),
       Promise.resolve(CreditRequest.findAll()),
+      fetchSupabaseCreditRequests(),
     ]);
+    const allTransactions = mergeTransactions(localTransactions, supabaseTransactions);
+    const allCreditRequests = mergeCreditRequests(localCreditRequests, supabaseCreditRequests);
 
     const roster = profiles.map((profile) => {
       const normalizedEmail = (profile.email || "").toLowerCase().trim();
