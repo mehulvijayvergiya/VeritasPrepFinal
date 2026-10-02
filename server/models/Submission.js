@@ -34,6 +34,9 @@ function hydrateSubmission(submission) {
   if (!submission.attachment_storage_path && submission.attachment_path) {
     submission.attachment_storage_path = submission.attachment_path;
   }
+  if (!submission.feedback_attachment_storage_path && submission.feedback_attachment_path) {
+    submission.feedback_attachment_storage_path = submission.feedback_attachment_path;
+  }
   if (!submission.submission_title) {
     submission.submission_title = formatSubmissionTitle(
       submission.name,
@@ -49,6 +52,8 @@ function mapSupabaseSubmission(row) {
   return hydrateSubmission({
     ...row,
     attachment_storage_path: row.attachment_storage_path || row.attachment_path || null,
+    feedback_attachment_storage_path:
+      row.feedback_attachment_storage_path || row.feedback_attachment_path || null,
   });
 }
 
@@ -130,6 +135,10 @@ async function syncSubmissionToSupabase(submission, { strict = false } = {}) {
         payment_verified_at: submission.payment_verified_at || null,
         google_drive_folder_id: submission.google_drive_folder_id || null,
         google_drive_folder_url: submission.google_drive_folder_url || null,
+        feedback_attachment_filename: submission.feedback_attachment_filename || null,
+        feedback_attachment_original_name: submission.feedback_attachment_original_name || null,
+        feedback_attachment_storage_path: submission.feedback_attachment_storage_path || null,
+        feedback_attachment_url: submission.feedback_attachment_url || null,
         status: submission.status || "pending",
         reviewer_notes: submission.reviewer_notes || "",
         annotations: submission.annotations || [],
@@ -259,6 +268,10 @@ export const Submission = {
       attachment_original_name: attachment_original_name || null,
       attachment_storage_path: attachment_storage_path || null,
       attachment_url: attachment_url || null,
+      feedback_attachment_filename: null,
+      feedback_attachment_original_name: null,
+      feedback_attachment_storage_path: null,
+      feedback_attachment_url: null,
       vc_charged: false,
       vc_charged_at: null,
       payment_verified: false,
@@ -513,6 +526,10 @@ export const Submission = {
     vc_charged_at,
     manual_email_sent,
     manual_email_sent_at,
+    feedback_attachment_filename,
+    feedback_attachment_original_name,
+    feedback_attachment_storage_path,
+    feedback_attachment_url,
   }) {
     const submission = await Submission.findById(id);
     if (!submission) return null;
@@ -544,6 +561,18 @@ export const Submission = {
     }
     if (manual_email_sent_at !== undefined) {
       submission.manual_email_sent_at = manual_email_sent_at || null;
+    }
+    if (feedback_attachment_filename !== undefined) {
+      submission.feedback_attachment_filename = feedback_attachment_filename || null;
+    }
+    if (feedback_attachment_original_name !== undefined) {
+      submission.feedback_attachment_original_name = feedback_attachment_original_name || null;
+    }
+    if (feedback_attachment_storage_path !== undefined) {
+      submission.feedback_attachment_storage_path = feedback_attachment_storage_path || null;
+    }
+    if (feedback_attachment_url !== undefined) {
+      submission.feedback_attachment_url = feedback_attachment_url || null;
     }
     submission.updated_at = new Date().toISOString();
     await db.write();

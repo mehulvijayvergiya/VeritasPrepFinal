@@ -132,6 +132,25 @@ async function uploadPdfToStorage(file, studentName, profileId, email, serviceKe
   return { storagePath: data.path, publicUrl: null };
 }
 
+async function uploadFeedbackPdfToStorage(file, studentName, submissionTitle, submissionId) {
+  if (!file) return null;
+  await ensureSubmissionBucket();
+
+  const ext = file.originalname?.split(".").pop() || "pdf";
+  const studentFolder = toReadableFolderSegment(studentName) || toSafeSegment("student");
+  const title = toSafeSegment(submissionTitle || `submission-${submissionId}`);
+  const safeName = `${title}-feedback-${Date.now()}.${ext}`;
+  const storagePath = `students/${studentFolder}/feedback/${safeName}`;
+  const supabase = getSupabase();
+  const { data, error } = await supabase.storage.from("student-submissions").upload(storagePath, file.buffer, {
+    contentType: file.mimetype || "application/pdf",
+    upsert: false,
+  });
+
+  if (error) throw new Error(`Feedback upload failed: ${error.message}`);
+  return { storagePath: data.path, publicUrl: null };
+}
+
 async function adjustStudentCredits({ profileId, email, delta }) {
   const amount = Number(delta);
   if (!Number.isFinite(amount) || amount === 0) return;
@@ -333,6 +352,20 @@ export async function updateSubmission(req, res) {
       });
     }
 
+    let feedbackUpload = null;
+    if (req.file) {
+      try {
+        feedbackUpload = await uploadFeedbackPdfToStorage(
+          req.file,
+          existing.name,
+          existing.submission_title || `${existing.name} - ${existing.service_label || existing.service_key || "Submission"}`,
+          existing.id
+        );
+      } catch (err) {
+        return res.status(400).json({ error: err.message || "Unable to upload feedback PDF." });
+      }
+    }
+
     const submission = await Submission.updateStatus(req.params.id, {
       status,
       reviewer_notes,
@@ -341,6 +374,10 @@ export async function updateSubmission(req, res) {
         shouldCharge ? true : shouldRefund ? false : existing.vc_charged,
       vc_charged_at:
         shouldCharge ? new Date().toISOString() : shouldRefund ? null : existing.vc_charged_at,
+      feedback_attachment_filename: req.file ? req.file.originalname : undefined,
+      feedback_attachment_original_name: req.file ? req.file.originalname : undefined,
+      feedback_attachment_storage_path: feedbackUpload?.storagePath || undefined,
+      feedback_attachment_url: feedbackUpload?.publicUrl || undefined,
     });
 
     res.json({ submission });
@@ -389,6 +426,51 @@ export async function getMySubmissionDownloadUrl(req, res) {
 
   if (error || !data?.signedUrl) {
     return res.status(502).json({ error: error?.message || "Unable to generate download link." });
+  }
+
+  res.json({ url: data.signedUrl, expires_in: 60 * 15 });
+}
+
+export async function getMySubmissionFeedbackDownloadUrl(req, res) {
+  const submission = await Submission.findById(req.params.id);
+  if (!submission) return res.status(404).json({ error: "Submission not found." });
+  if (!submissionBelongsToStudent(submission, req.student?.profile)) {
+    return res.status(403).json({ error: "You do not have access to this submission." });
+  }
+  if (!submission.feedback_attachment_storage_path) {
+    return res.status(404).json({ error: "No feedback PDF found for this submission." });
+  }
+
+  const supabase = getSupabase();
+  const { data, error } = await supabase.storage
+    .from("student-submissions")
+    .createSignedUrl(submission.feedback_attachment_storage_path, 60 * 15, {
+      download: submission.feedback_attachment_original_name || submission.feedback_attachment_filename || "feedback.pdf",
+    });
+
+  if (error || !data?.signedUrl) {
+    return res.status(502).json({ error: error?.message || "Unable to generate feedback link." });
+  }
+
+  res.json({ url: data.signedUrl, expires_in: 60 * 15 });
+}
+
+export async function getSubmissionFeedbackDownloadUrl(req, res) {
+  const submission = await Submission.findById(req.params.id);
+  if (!submission) return res.status(404).json({ error: "Submission not found." });
+  if (!submission.feedback_attachment_storage_path) {
+    return res.status(404).json({ error: "No feedback PDF found for this submission." });
+  }
+
+  const supabase = getSupabase();
+  const { data, error } = await supabase.storage
+    .from("student-submissions")
+    .createSignedUrl(submission.feedback_attachment_storage_path, 60 * 15, {
+      download: submission.feedback_attachment_original_name || submission.feedback_attachment_filename || "feedback.pdf",
+    });
+
+  if (error || !data?.signedUrl) {
+    return res.status(502).json({ error: error?.message || "Unable to generate feedback link." });
   }
 
   res.json({ url: data.signedUrl, expires_in: 60 * 15 });

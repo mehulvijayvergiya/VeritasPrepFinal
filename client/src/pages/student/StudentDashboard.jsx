@@ -28,6 +28,7 @@ export default function StudentDashboard() {
   const [activeSubmissionId, setActiveSubmissionId] = useState("");
   const [activeSubmissionTab, setActiveSubmissionTab] = useState("details");
   const [downloadingSubmissionId, setDownloadingSubmissionId] = useState("");
+  const [downloadingFeedbackSubmissionId, setDownloadingFeedbackSubmissionId] = useState("");
   const [sessionToken, setSessionToken] = useState("");
   const [isReadOnlyView, setIsReadOnlyView] = useState(false);
   const [viewedByAdmin, setViewedByAdmin] = useState("");
@@ -245,6 +246,28 @@ export default function StudentDashboard() {
       setSaveMessage(err.message || "Unable to open your uploaded file.");
     } finally {
       setDownloadingSubmissionId("");
+    }
+  }
+
+  async function handleDownloadFeedback(submissionId) {
+    if (!submissionId) return;
+    setDownloadingFeedbackSubmissionId(submissionId);
+    try {
+      let url = "";
+      if (isReadOnlyView) {
+        if (!viewToken) return;
+        const data = await api.getStudentSubmissionFeedbackDownloadUrlForView(submissionId, viewToken);
+        url = data.url;
+      } else {
+        if (!sessionToken) return;
+        const data = await api.getStudentSubmissionFeedbackDownloadUrl(submissionId, sessionToken);
+        url = data.url;
+      }
+      window.open(url, "_blank", "noopener,noreferrer");
+    } catch (err) {
+      setSaveMessage(err.message || "Unable to open feedback PDF.");
+    } finally {
+      setDownloadingFeedbackSubmissionId("");
     }
   }
 
@@ -582,6 +605,26 @@ export default function StudentDashboard() {
 
                         {activeSubmissionTab === "feedback" && (
                           <div className="mt-4 space-y-3">
+                            <div className="rounded-sm border border-hairline bg-parchment p-3">
+                              <p className="font-body text-xs text-slate-500">Feedback PDF</p>
+                              {submission.feedback_attachment_storage_path ? (
+                                <>
+                                  <button
+                                    onClick={() => handleDownloadFeedback(submission.id)}
+                                    disabled={downloadingFeedbackSubmissionId === submission.id}
+                                    className="mt-2 rounded-sm bg-ink-900 px-3 py-2 font-body text-xs text-white disabled:opacity-60"
+                                  >
+                                    {downloadingFeedbackSubmissionId === submission.id ? "Preparing file..." : "Open feedback PDF"}
+                                  </button>
+                                  <p className="mt-1 font-body text-xs text-slate-500">
+                                    {submission.feedback_attachment_original_name || submission.feedback_attachment_filename || "feedback.pdf"}
+                                  </p>
+                                </>
+                              ) : (
+                                <p className="mt-1 font-body text-sm text-slate-500">No feedback PDF has been attached yet.</p>
+                              )}
+                            </div>
+
                             <div className="rounded-sm border border-hairline bg-parchment p-3">
                               <p className="font-body text-xs text-slate-500">Submission file</p>
                               {submission.attachment_storage_path ? (

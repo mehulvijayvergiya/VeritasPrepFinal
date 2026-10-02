@@ -242,6 +242,51 @@ export async function viewAsStudentSubmissionDownloadUrl(req, res) {
   }
 }
 
+export async function viewAsStudentSubmissionFeedbackDownloadUrl(req, res) {
+  const viewToken = (req.query.view_token || "").toString().trim();
+  if (!viewToken) {
+    return res.status(401).json({ error: "Missing view token." });
+  }
+
+  try {
+    const payload = jwt.verify(viewToken, process.env.JWT_SECRET);
+    if (payload?.type !== "student_view" || !payload?.profile_id) {
+      return res.status(401).json({ error: "Invalid view token." });
+    }
+
+    const profile = await ProfileModel.getById(payload.profile_id);
+    if (!profile) {
+      return res.status(404).json({ error: "Student profile not found." });
+    }
+
+    const submission = await Submission.findById(req.params.id);
+    if (!submission) return res.status(404).json({ error: "Submission not found." });
+    if (!submissionBelongsToProfile(submission, profile)) {
+      return res.status(403).json({ error: "You do not have access to this submission." });
+    }
+
+    const storagePath = submission.feedback_attachment_storage_path || submission.feedback_attachment_path;
+    if (!storagePath) {
+      return res.status(404).json({ error: "No feedback PDF found for this submission." });
+    }
+
+    const supabase = getSupabase();
+    const { data, error } = await supabase.storage
+      .from("student-submissions")
+      .createSignedUrl(storagePath, 60 * 15, {
+        download: submission.feedback_attachment_original_name || submission.feedback_attachment_filename || "feedback.pdf",
+      });
+
+    if (error || !data?.signedUrl) {
+      return res.status(502).json({ error: error?.message || "Unable to generate feedback link." });
+    }
+
+    return res.json({ url: data.signedUrl, expires_in: 60 * 15 });
+  } catch {
+    return res.status(401).json({ error: "View session expired. Please reopen from the admin dashboard." });
+  }
+}
+
 export async function mySubmissions(req, res) {
   const { profile } = req.student;
   await Submission.recoverFromStorageForProfile({

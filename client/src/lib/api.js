@@ -5,7 +5,8 @@ function getToken() {
 }
 
 async function request(path, { method = "GET", body, auth = false, token } = {}) {
-  const headers = { "Content-Type": "application/json" };
+  const isFormData = typeof FormData !== "undefined" && body instanceof FormData;
+  const headers = isFormData ? {} : { "Content-Type": "application/json" };
   if (token) {
     headers.Authorization = `Bearer ${token}`;
   } else if (auth) {
@@ -16,7 +17,7 @@ async function request(path, { method = "GET", body, auth = false, token } = {})
   const res = await fetch(`${BASE}${path}`, {
     method,
     headers,
-    body: body ? JSON.stringify(body) : undefined,
+    body: body ? (isFormData ? body : JSON.stringify(body)) : undefined,
   });
 
   const data = await res.json().catch(() => ({}));
@@ -58,6 +59,7 @@ export const api = {
   listSubmissions: () => request("/submissions", { auth: true }),
   getSubmission: (id) => request(`/submissions/${id}`, { auth: true }),
   getSubmissionDownloadUrl: (id) => request(`/submissions/${id}/download-url`, { auth: true }),
+  getSubmissionFeedbackDownloadUrl: (id) => request(`/submissions/${id}/feedback-download-url`, { auth: true }),
   updateSubmission: (id, payload) =>
     request(`/submissions/${id}`, { method: "PATCH", body: payload, auth: true }),
   updateAnnotations: (id, annotations) =>
@@ -97,8 +99,12 @@ export const api = {
   getStudentTransactions: (studentToken) => request("/students/transactions", { token: studentToken }),
   getStudentSubmissionDownloadUrl: (id, studentToken) =>
     request(`/students/submissions/${id}/download-url`, { token: studentToken }),
+  getStudentSubmissionFeedbackDownloadUrl: (id, studentToken) =>
+    request(`/students/submissions/${id}/feedback-download-url`, { token: studentToken }),
   getStudentSubmissionDownloadUrlForView: (id, viewToken) =>
     request(`/students/view-as/submissions/${id}/download-url?view_token=${encodeURIComponent(viewToken)}`),
+  getStudentSubmissionFeedbackDownloadUrlForView: (id, viewToken) =>
+    request(`/students/view-as/submissions/${id}/feedback-download-url?view_token=${encodeURIComponent(viewToken)}`),
   getStudentAppointments: (studentToken) => request("/appointments/my", { token: studentToken }),
   listMeetingSlots: () => request("/appointments/slots"),
   listMeetingSlotsAdmin: () => request("/appointments/slots/admin", { auth: true }),

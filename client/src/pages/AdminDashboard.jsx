@@ -33,6 +33,7 @@ function SubmissionsTab({ submissions, loading, onUpdate, onOpenStudentProfile }
   const [filter, setFilter] = useState("all");
   const [draftStatus, setDraftStatus] = useState("pending");
   const [draftNotes, setDraftNotes] = useState("");
+  const [draftFeedbackPdf, setDraftFeedbackPdf] = useState(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [downloading, setDownloading] = useState(false);
@@ -55,6 +56,7 @@ function SubmissionsTab({ submissions, loading, onUpdate, onOpenStudentProfile }
     if (selected) {
       setDraftStatus(selected.status);
       setDraftNotes(selected.reviewer_notes || "");
+      setDraftFeedbackPdf(null);
     }
   }, [selected?.id]); // eslint-disable-line
 
@@ -62,7 +64,15 @@ function SubmissionsTab({ submissions, loading, onUpdate, onOpenStudentProfile }
     if (!selected) return;
     setSaving(true);
     try {
-      await onUpdate(selected.id, { status: draftStatus, reviewer_notes: draftNotes });
+      if (draftFeedbackPdf) {
+        const formData = new FormData();
+        formData.append("status", draftStatus);
+        formData.append("reviewer_notes", draftNotes);
+        formData.append("feedback_pdf", draftFeedbackPdf);
+        await onUpdate(selected.id, formData);
+      } else {
+        await onUpdate(selected.id, { status: draftStatus, reviewer_notes: draftNotes });
+      }
     } catch (err) {
       setError(err.message);
     } finally {
@@ -237,6 +247,15 @@ function SubmissionsTab({ submissions, loading, onUpdate, onOpenStudentProfile }
               </div>
             </div>
 
+            {(selected.feedback_attachment_original_name || selected.feedback_attachment_filename) && (
+              <div className="mt-8">
+                <p className="font-mono text-xs uppercase tracking-widest text-gold-600">Feedback PDF</p>
+                <div className="mt-2 rounded-sm border border-hairline bg-white p-6 font-body text-sm text-slate-600">
+                  {selected.feedback_attachment_original_name || selected.feedback_attachment_filename}
+                </div>
+              </div>
+            )}
+
             {selected.attachment_storage_path && (
               <div className="mt-8">
                 <p className="font-mono text-xs uppercase tracking-widest text-gold-600">Attachment</p>
@@ -303,6 +322,25 @@ function SubmissionsTab({ submissions, loading, onUpdate, onOpenStudentProfile }
                   placeholder="Notes for internal use or to share back with the student..."
                   className="mt-2 min-h-[120px] w-full resize-y rounded-sm border border-hairline px-4 py-3 font-body text-sm leading-6 focus:border-ink-900 focus:outline-none"
                 />
+              </label>
+              <label className="mt-4 block">
+                <span className="font-body text-sm font-medium text-ink-900">Feedback PDF <span className="font-normal text-slate-500">(optional)</span></span>
+                <input
+                  type="file"
+                  accept="application/pdf"
+                  onChange={(e) => setDraftFeedbackPdf(e.target.files?.[0] || null)}
+                  className="mt-2 block w-full font-body text-sm text-slate-500 file:mr-3 file:rounded-sm file:border file:border-hairline file:bg-parchment file:px-3 file:py-1.5 file:font-body file:text-xs file:text-ink-900"
+                />
+                {(selected.feedback_attachment_original_name || selected.feedback_attachment_filename) && !draftFeedbackPdf && (
+                  <p className="mt-1 font-body text-xs text-slate-500">
+                    Current PDF: {selected.feedback_attachment_original_name || selected.feedback_attachment_filename}
+                  </p>
+                )}
+                {draftFeedbackPdf && (
+                  <p className="mt-1 font-body text-xs text-emerald-700">
+                    New PDF selected: {draftFeedbackPdf.name}
+                  </p>
+                )}
               </label>
               <label className="mt-4 flex items-center gap-2">
                 <input
