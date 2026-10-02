@@ -10,6 +10,12 @@ function toNumberOrNull(value) {
   return Number.isNaN(n) ? value : n;
 }
 
+function extractMissingColumnFromMessage(message) {
+  const text = String(message || "");
+  const match = text.match(/Could not find the '([^']+)' column/i);
+  return match ? match[1] : null;
+}
+
 export default function StudentDashboard() {
   const [profile, setProfile] = useState(null);
   const [submissions, setSubmissions] = useState([]);
@@ -155,7 +161,27 @@ export default function StudentDashboard() {
           .filter(Boolean),
       };
 
-      const { profile: updatedProfile } = await api.updateStudentMe(payload, sessionToken);
+      const mutablePayload = { ...payload };
+      let updatedProfile = null;
+
+      // Retry transparently if the API reports a missing profile column.
+      while (true) {
+        try {
+          const response = await api.updateStudentMe(mutablePayload, sessionToken);
+          updatedProfile = response.profile;
+          break;
+        } catch (err) {
+          const missingColumn = extractMissingColumnFromMessage(err?.message);
+          if (!missingColumn || !(missingColumn in mutablePayload)) {
+            throw err;
+          }
+          delete mutablePayload[missingColumn];
+          if (Object.keys(mutablePayload).length === 0) {
+            throw err;
+          }
+        }
+      }
+
       setProfile(updatedProfile);
       setSaveMessage("Profile updated.");
     } catch (err) {
