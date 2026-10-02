@@ -57,6 +57,14 @@ function mapSupabaseSubmission(row) {
   });
 }
 
+function extractMissingColumn(error) {
+  const message = String(error?.message || "");
+  const explicit = message.match(/column\s+submissions\.([a-zA-Z0-9_]+)\s+does not exist/i);
+  if (explicit) return explicit[1];
+  const quoted = message.match(/Could not find '([^']+)' column/i);
+  return quoted ? quoted[1] : null;
+}
+
 function getSubmissionId(submission) {
   return Number(submission?.id);
 }
@@ -112,44 +120,64 @@ async function syncSubmissionToSupabase(submission, { strict = false } = {}) {
       submission.service_label,
       submission.service_key
     );
-    await supabase.from("submissions").upsert(
-      {
-        id: submission.id,
-        profile_id: submission.profile_id || null,
-        name: submission.name,
-        email: submission.email,
-        colleges: submission.colleges,
-        essay: submission.essay || "",
-        essay_for_college: submission.essay_for_college || null,
-        word_count: submission.word_count ?? null,
-        essay_prompt: submission.essay_prompt || null,
-        activities: submission.activities || "",
-        notes: submission.notes || "",
-        service_key: submission.service_key || null,
-        service_label: submission.service_label || null,
-        vc_cost: submission.vc_cost ?? null,
-        submission_title: submission.submission_title || formattedTitle,
-        submission_type: submission.submission_type || null,
-        submission_checklist: submission.submission_checklist || [],
-        payment_verified: Boolean(submission.payment_verified),
-        payment_verified_at: submission.payment_verified_at || null,
-        google_drive_folder_id: submission.google_drive_folder_id || null,
-        google_drive_folder_url: submission.google_drive_folder_url || null,
-        feedback_attachment_filename: submission.feedback_attachment_filename || null,
-        feedback_attachment_original_name: submission.feedback_attachment_original_name || null,
-        feedback_attachment_storage_path: submission.feedback_attachment_storage_path || null,
-        feedback_attachment_url: submission.feedback_attachment_url || null,
-        status: submission.status || "pending",
-        reviewer_notes: submission.reviewer_notes || "",
-        annotations: submission.annotations || [],
-        comments: submission.comments || [],
-        feedback_sent_at: submission.feedback_sent_at || null,
-        created_at: submission.created_at,
-        updated_at: submission.updated_at,
-        attachment_path: submission.attachment_storage_path || null,
-      },
-      { onConflict: "id" }
-    );
+    const payload = {
+      id: submission.id,
+      profile_id: submission.profile_id || null,
+      name: submission.name,
+      email: submission.email,
+      colleges: submission.colleges,
+      essay: submission.essay || "",
+      essay_for_college: submission.essay_for_college || null,
+      word_count: submission.word_count ?? null,
+      essay_prompt: submission.essay_prompt || null,
+      activities: submission.activities || "",
+      notes: submission.notes || "",
+      service_key: submission.service_key || null,
+      service_label: submission.service_label || null,
+      vc_cost: submission.vc_cost ?? null,
+      submission_title: submission.submission_title || formattedTitle,
+      submission_type: submission.submission_type || null,
+      submission_checklist: submission.submission_checklist || [],
+      payment_verified: Boolean(submission.payment_verified),
+      payment_verified_at: submission.payment_verified_at || null,
+      vc_charged: Boolean(submission.vc_charged),
+      vc_charged_at: submission.vc_charged_at || null,
+      google_drive_folder_id: submission.google_drive_folder_id || null,
+      google_drive_folder_url: submission.google_drive_folder_url || null,
+      feedback_attachment_filename: submission.feedback_attachment_filename || null,
+      feedback_attachment_original_name: submission.feedback_attachment_original_name || null,
+      feedback_attachment_storage_path: submission.feedback_attachment_storage_path || null,
+      feedback_attachment_url: submission.feedback_attachment_url || null,
+      status: submission.status || "pending",
+      reviewer_notes: submission.reviewer_notes || "",
+      annotations: submission.annotations || [],
+      comments: submission.comments || [],
+      feedback_sent_at: submission.feedback_sent_at || null,
+      created_at: submission.created_at,
+      updated_at: submission.updated_at,
+      attachment_path: submission.attachment_storage_path || null,
+    };
+
+    const mutablePayload = { ...payload };
+    while (true) {
+      const { error } = await supabase
+        .from("submissions")
+        .upsert(mutablePayload, { onConflict: "id" });
+
+      if (!error) {
+        return;
+      }
+
+      const missingColumn = extractMissingColumn(error);
+      if (!missingColumn || !(missingColumn in mutablePayload)) {
+        throw error;
+      }
+
+      delete mutablePayload[missingColumn];
+      if (Object.keys(mutablePayload).length === 0) {
+        throw error;
+      }
+    }
   } catch (err) {
     if (strict) {
       throw err;
