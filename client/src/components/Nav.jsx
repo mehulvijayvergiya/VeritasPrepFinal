@@ -62,7 +62,8 @@ export default function Nav({ adminMode = false }) {
 
   const firstName = profile?.full_name ? profile.full_name.split(" ")[0] : null;
   const adminLoggedIn = isLoggedIn();
-  const homePath = adminMode && adminLoggedIn ? "/admin/home" : "/";
+  const effectiveAdminMode = adminMode || adminLoggedIn;
+  const homePath = effectiveAdminMode ? "/admin/home" : "/";
 
   return (
     <header className="sticky top-0 z-40 border-b border-hairline/80 bg-parchment/90 backdrop-blur">
@@ -118,7 +119,7 @@ export default function Nav({ adminMode = false }) {
                 </div>
               </details>
             </>
-          ) : adminMode && adminLoggedIn ? (
+          ) : adminLoggedIn ? (
             <div className="flex items-center gap-2">
               <button
                 onClick={() => navigate("/apply")}

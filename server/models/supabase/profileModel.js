@@ -15,6 +15,12 @@ const EDITABLE_FIELDS = [
   "target_colleges",
 ];
 
+function extractMissingColumn(error) {
+  const message = String(error?.message || "");
+  const match = message.match(/Could not find '([^']+)' column/i);
+  return match ? match[1] : null;
+}
+
 function validate({
   gpa,
   sat_score,
@@ -160,13 +166,29 @@ export const ProfileModel = {
     }
 
     const supabase = getSupabase();
-    const { data, error } = await supabase
-      .from("profiles")
-      .update(patch)
-      .eq("id", profileId)
-      .select()
-      .single();
-    if (error) throw error;
-    return { profile: data };
+    const mutablePatch = { ...patch };
+
+    while (true) {
+      const { data, error } = await supabase
+        .from("profiles")
+        .update(mutablePatch)
+        .eq("id", profileId)
+        .select()
+        .single();
+
+      if (!error) return { profile: data };
+
+      const missingColumn = extractMissingColumn(error);
+      if (!missingColumn || !(missingColumn in mutablePatch)) {
+        throw error;
+      }
+
+      delete mutablePatch[missingColumn];
+
+      if (Object.keys(mutablePatch).length === 0) {
+        const profile = await ProfileModel.getById(profileId);
+        return { profile };
+      }
+    }
   },
 };
