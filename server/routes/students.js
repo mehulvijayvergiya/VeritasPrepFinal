@@ -11,6 +11,7 @@ import {
 	myTransactions,
 	updateMyProfile,
 	viewAsStudentDashboard,
+	viewAsStudentSubmissionFeedbackDownloadUrl,
 	viewAsStudentSubmissionDownloadUrl,
 } from "../controllers/studentsController.js";
 
