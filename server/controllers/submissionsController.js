@@ -25,6 +25,56 @@ const SERVICE_LABEL_MAP = {
   meeting: "15-min 1:1 Meeting",
 };
 
+function normalizeServiceKeyForPricing(serviceKey) {
+  if (!serviceKey) return null;
+  if (PRICES[serviceKey] !== undefined) return serviceKey;
+  return SERVICE_KEY_MAP[serviceKey] || null;
+}
+
+function inferPriceKeyFromLabel(serviceLabel) {
+  const label = (serviceLabel || "").toLowerCase();
+  if (!label) return null;
+  if (label.includes("activity")) return "activities";
+  if (label.includes("301-500")) return "essay_medium";
+  if (label.includes("<= 300") || label.includes("1-300")) return "essay_short";
+  if (label.includes("> 500") || label.includes("501+") || label.includes("common app")) return "essay_long";
+  if (label.includes("meeting") || label.includes("15-min")) return "meeting_15min";
+  return null;
+}
+
+function inferPriceKeyFromWordCount(wordCount) {
+  const count = Number(wordCount);
+  if (!Number.isInteger(count) || count <= 0) return null;
+  if (count <= 300) return "essay_short";
+  if (count <= 500) return "essay_medium";
+  return "essay_long";
+}
+
+function resolveSubmissionPriceKey(submission) {
+  const byService = normalizeServiceKeyForPricing(submission?.service_key || submission?.submission_type);
+  if (byService) return byService;
+
+  const byLabel = inferPriceKeyFromLabel(submission?.service_label);
+  if (byLabel) return byLabel;
+
+  return inferPriceKeyFromWordCount(submission?.word_count);
+}
+
+function resolveSubmissionVcCost(submission) {
+  const explicitCost = Number(submission?.vc_cost);
+  if (Number.isFinite(explicitCost) && explicitCost > 0) return explicitCost;
+
+  const priceKey = resolveSubmissionPriceKey(submission);
+  const mapped = priceKey ? Number(PRICES[priceKey]) : NaN;
+  if (Number.isFinite(mapped) && mapped > 0) return mapped;
+
+  return 0;
+}
+
+function isTruthyCharged(value) {
+  return value === true || value === 1 || value === "1" || value === "true";
+}
+
 function toSafeSegment(value) {
   return (value || "")
     .toString()
@@ -315,15 +365,24 @@ export async function updateSubmission(req, res) {
 
     const nextStatus = status || existing.status;
     const isApprovalStatus = nextStatus === "in_review" || nextStatus === "completed";
-    const shouldCharge = isApprovalStatus && !existing.vc_charged && Number(existing.vc_cost || 0) > 0;
-    const shouldRefund = nextStatus === "pending" && Boolean(existing.vc_charged) && Number(existing.vc_cost || 0) > 0;
+    const existingCharged = isTruthyCharged(existing.vc_charged);
+    const resolvedVcCost = resolveSubmissionVcCost(existing);
+    const shouldCharge = isApprovalStatus && !existingCharged && resolvedVcCost > 0;
+    const shouldRefund = nextStatus === "pending" && existingCharged && resolvedVcCost > 0;
+
+    if (isApprovalStatus && !existingCharged && resolvedVcCost <= 0) {
+      return res.status(422).json({
+        error:
+          "This submission has no pricing configured, so credits could not be deducted. Please set a valid service type and try again.",
+      });
+    }
 
     if (shouldCharge) {
       try {
         await adjustStudentCredits({
           profileId: existing.profile_id,
           email: existing.email,
-          delta: -Math.abs(Number(existing.vc_cost || 0)),
+          delta: -Math.abs(resolvedVcCost),
         });
       } catch (creditErr) {
         return res.status(422).json({ error: creditErr.message || "Unable to deduct credits." });
@@ -331,7 +390,7 @@ export async function updateSubmission(req, res) {
       await Transaction.create({
         email: existing.email,
         type: "credit_spend",
-        amount: -Math.abs(Number(existing.vc_cost || 0)),
+        amount: -Math.abs(resolvedVcCost),
         note: `Credits spent for ${existing.service_label || existing.service_key || "submission"}`,
         status: "completed",
       });
@@ -341,12 +400,12 @@ export async function updateSubmission(req, res) {
       await adjustStudentCredits({
         profileId: existing.profile_id,
         email: existing.email,
-        delta: Math.abs(Number(existing.vc_cost || 0)),
+        delta: Math.abs(resolvedVcCost),
       });
       await Transaction.create({
         email: existing.email,
         type: "credit_refund",
-        amount: Math.abs(Number(existing.vc_cost || 0)),
+        amount: Math.abs(resolvedVcCost),
         note: `Credits refunded for ${existing.service_label || existing.service_key || "submission"}`,
         status: "completed",
       });
@@ -371,9 +430,10 @@ export async function updateSubmission(req, res) {
       reviewer_notes,
       payment_verified,
       vc_charged:
-        shouldCharge ? true : shouldRefund ? false : existing.vc_charged,
+        shouldCharge ? true : shouldRefund ? false : existingCharged,
       vc_charged_at:
         shouldCharge ? new Date().toISOString() : shouldRefund ? null : existing.vc_charged_at,
+      vc_cost: resolvedVcCost > 0 ? resolvedVcCost : existing.vc_cost,
       feedback_attachment_filename: req.file ? req.file.originalname : undefined,
       feedback_attachment_original_name: req.file ? req.file.originalname : undefined,
       feedback_attachment_storage_path: feedbackUpload?.storagePath || undefined,

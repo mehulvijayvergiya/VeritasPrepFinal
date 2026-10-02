@@ -520,6 +520,7 @@ export const Submission = {
     status,
     reviewer_notes,
     payment_verified,
+    vc_cost,
     google_drive_folder_id,
     google_drive_folder_url,
     vc_charged,
@@ -543,6 +544,12 @@ export const Submission = {
     if (payment_verified !== undefined) {
       submission.payment_verified = Boolean(payment_verified);
       submission.payment_verified_at = submission.payment_verified ? new Date().toISOString() : null;
+    }
+    if (vc_cost !== undefined && vc_cost !== null && vc_cost !== "") {
+      const parsedCost = Number(vc_cost);
+      if (Number.isFinite(parsedCost) && parsedCost >= 0) {
+        submission.vc_cost = parsedCost;
+      }
     }
     if (google_drive_folder_id !== undefined) {
       submission.google_drive_folder_id = google_drive_folder_id || null;
