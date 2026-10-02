@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { requireAuth } from "../middleware/auth.js";
-import { requireStudentAuth } from "../middleware/studentAuth.js";
+import { requireStudentAuth, requireStudentOrAdminAuth } from "../middleware/studentAuth.js";
 import { submitLimiter } from "../middleware/rateLimit.js";
 import { uploadPdf } from "../middleware/upload.js";
 import {
@@ -18,7 +18,7 @@ import {
 const router = Router();
 
 // Student-authenticated submission flow.
-router.post("/", requireStudentAuth, submitLimiter, uploadPdf.single("pdf"), createSubmission);
+router.post("/", requireStudentOrAdminAuth, submitLimiter, uploadPdf.single("pdf"), createSubmission);
 
 // Admin only
 router.get("/", requireAuth, listSubmissions);

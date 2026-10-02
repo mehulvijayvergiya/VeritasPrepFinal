@@ -105,8 +105,13 @@ export const api = {
   createMeetingSlot: (payload) => request("/appointments/slots", { method: "POST", body: payload, auth: true }),
   deleteMeetingSlot: (id) => request(`/appointments/slots/${id}`, { method: "DELETE", auth: true }),
   listAppointments: () => request("/appointments", { auth: true }),
-  createAppointment: (payload, studentToken) =>
-    request("/appointments", { method: "POST", body: payload, token: studentToken }),
+  createAppointment: (payload, studentToken, options = {}) =>
+    request("/appointments", {
+      method: "POST",
+      body: payload,
+      token: studentToken,
+      auth: options.auth === true,
+    }),
   rescheduleAppointment: (id, payload, studentToken) =>
     request(`/appointments/${id}/reschedule`, { method: "PATCH", body: payload, token: studentToken }),
   updateAppointmentStatus: (id, status) =>

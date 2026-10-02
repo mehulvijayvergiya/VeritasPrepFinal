@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { getStudentSession, onStudentAuthStateChange, logoutStudent } from "../lib/studentAuth.js";
-import { api } from "../lib/api.js";
+import { api, isLoggedIn } from "../lib/api.js";
 
 function UserIcon() {
   return (
@@ -17,7 +17,7 @@ function UserIcon() {
   );
 }
 
-export default function Nav() {
+export default function Nav({ adminMode = false }) {
   const navigate = useNavigate();
   const [session, setSession] = useState(undefined); // undefined = checking, null = anon
   const [profile, setProfile] = useState(null);
@@ -61,11 +61,13 @@ export default function Nav() {
   }
 
   const firstName = profile?.full_name ? profile.full_name.split(" ")[0] : null;
+  const adminLoggedIn = isLoggedIn();
+  const homePath = adminMode && adminLoggedIn ? "/admin/home" : "/";
 
   return (
     <header className="sticky top-0 z-40 border-b border-hairline/80 bg-parchment/90 backdrop-blur">
       <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
-        <Link to="/" className="flex items-center gap-3">
+        <Link to={homePath} className="flex items-center gap-3">
           <img src="/logo.png" alt="Veritas Prep" className="h-10 w-10" />
           <span className="font-display text-lg tracking-tight text-ink-900">
             Veritas Prep
@@ -73,9 +75,9 @@ export default function Nav() {
         </Link>
 
         <nav className="hidden items-center gap-6 font-body text-sm text-ink-600 md:flex">
-          <a href="/#services" className="ink-underline pb-1">Services</a>
-          <a href="/#about" className="ink-underline pb-1">About</a>
-          <a href="/#faq" className="ink-underline pb-1">FAQ</a>
+          <a href={`${homePath}#services`} className="ink-underline pb-1">Services</a>
+          <a href={`${homePath}#about`} className="ink-underline pb-1">About</a>
+          <a href={`${homePath}#faq`} className="ink-underline pb-1">FAQ</a>
           <Link to="/contact" className="ink-underline pb-1">Contact</Link>
           <Link to="/credits" className="ink-underline pb-1">Credits</Link>
         </nav>
@@ -116,6 +118,21 @@ export default function Nav() {
                 </div>
               </details>
             </>
+          ) : adminMode && adminLoggedIn ? (
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => navigate("/apply")}
+                className="rounded-sm bg-ink-900 px-5 py-2.5 font-body text-sm font-medium text-parchment transition hover:bg-ink-600"
+              >
+                Submit on Website
+              </button>
+              <button
+                onClick={() => navigate("/admin")}
+                className="rounded-sm border border-ink-900 px-4 py-2.5 font-body text-sm font-medium text-ink-900 transition hover:bg-ink-900 hover:text-white"
+              >
+                Reviewer Dashboard
+              </button>
+            </div>
           ) : (
             <button
               onClick={() => navigate("/login")}
@@ -132,9 +149,9 @@ export default function Nav() {
               ☰
             </summary>
             <div className="absolute right-0 mt-2 w-52 rounded-sm border border-hairline bg-white p-3 font-body text-sm text-ink-600 shadow-lg">
-              <a href="/#services" className="block py-1.5">Services</a>
-              <a href="/#about" className="block py-1.5">About</a>
-              <a href="/#faq" className="block py-1.5">FAQ</a>
+              <a href={`${homePath}#services`} className="block py-1.5">Services</a>
+              <a href={`${homePath}#about`} className="block py-1.5">About</a>
+              <a href={`${homePath}#faq`} className="block py-1.5">FAQ</a>
               <Link to="/contact" className="block py-1.5">Contact</Link>
               <Link to="/credits" className="block py-1.5">Credits</Link>
               {session ? (

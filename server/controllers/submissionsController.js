@@ -179,7 +179,7 @@ export async function createSubmission(req, res) {
   const profileColleges = Array.isArray(studentProfile?.target_colleges)
     ? studentProfile.target_colleges.filter(Boolean).join(", ")
     : "";
-  const resolvedColleges = (colleges || profileColleges || "Not provided").trim();
+  const resolvedColleges = (profileColleges || colleges || "Not provided").trim();
 
   if (!resolvedName) errors.name = "Full name is required.";
   if (!resolvedEmail || !EMAIL_RE.test(resolvedEmail)) errors.email = "A valid email is required.";

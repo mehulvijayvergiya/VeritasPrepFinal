@@ -6,6 +6,7 @@ import Credits from "./pages/Credits.jsx";
 import Login from "./pages/Login.jsx";
 import Contact from "./pages/Contact.jsx";
 import AdminDashboard from "./pages/AdminDashboard.jsx";
+import AdminHome from "./pages/AdminHome.jsx";
 import ProtectedRoute from "./components/ProtectedRoute.jsx";
 import StudentRegister from "./pages/student/StudentRegister.jsx";
 import StudentVerify from "./pages/student/StudentVerify.jsx";
@@ -36,6 +37,14 @@ export default function App() {
         element={
           <ProtectedRoute>
             <AdminDashboard />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/home"
+        element={
+          <ProtectedRoute>
+            <AdminHome />
           </ProtectedRoute>
         }
       />

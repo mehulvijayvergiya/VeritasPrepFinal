@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { requireAuth } from "../middleware/auth.js";
-import { requireStudentAuth } from "../middleware/studentAuth.js";
+import { requireStudentAuth, requireStudentOrAdminAuth } from "../middleware/studentAuth.js";
 import {
 	createAppointment,
 	createAppointmentSlot,
@@ -21,7 +21,7 @@ router.post("/slots", requireAuth, createAppointmentSlot);
 router.delete("/slots/:id", requireAuth, deleteAppointmentSlot);
 router.get("/", requireAuth, listAppointments);
 router.get("/my", requireStudentAuth, listMyAppointments);
-router.post("/", requireStudentAuth, createAppointment);
+router.post("/", requireStudentOrAdminAuth, createAppointment);
 router.patch("/:id/reschedule", requireStudentAuth, rescheduleMyAppointment);
 router.patch("/:id/status", requireAuth, updateAppointmentStatus);
 

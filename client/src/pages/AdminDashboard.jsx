@@ -373,36 +373,23 @@ function CreditsTab() {
 
   const pending = requests.filter((r) => r.status === "pending");
   const resolved = requests.filter((r) => r.status !== "pending");
-  const transactionHistory = transactions.filter((entry) =>
-    entry.type === "credit_purchase" ||
-    entry.type === "credit_spend" ||
-    entry.type === "credit_refund"
-  );
+  const usageHistory = transactions
+    .filter((entry) => entry.type === "credit_spend" || entry.type === "credit_refund")
+    .sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
 
-  const requestBackfillHistory = resolved
-    .filter((request) => {
-      if (request.status !== "approved" && request.status !== "rejected") return false;
-      const requestIdTag = `request #${request.id}`;
-      return !transactionHistory.some((entry) =>
-        (entry.note || "").toLowerCase().includes(requestIdTag)
-      );
-    })
+  const purchaseApprovalHistory = resolved
     .map((request) => ({
       id: `request-${request.id}`,
       email: request.email,
-      amount: request.status === "approved" ? request.vc : 0,
-      note:
-        request.status === "approved"
-          ? `${request.vc} VC approved via ${request.method}`
-          : `Credit request rejected (${request.method})`,
+      vc: Number(request.vc || 0),
+      amount_usd: Number(request.amount_usd || 0),
+      method: request.method,
+      note: request.note || "",
       status: request.status,
-      created_at: request.resolved_at || request.created_at,
-      source: "credit_request",
-    }));
-
-  const purchaseHistory = [...transactionHistory, ...requestBackfillHistory].sort(
-    (a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0)
-  );
+      created_at: request.created_at,
+      resolved_at: request.resolved_at || null,
+    }))
+    .sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
 
   return (
     <div className="flex-1 overflow-y-auto p-8">
@@ -484,14 +471,46 @@ function CreditsTab() {
       )}
 
       <h3 className="mt-10 font-mono text-xs uppercase tracking-widest text-slate-500">
-        Purchase history
+        Credit purchase approvals
       </h3>
-      {purchaseHistory.length === 0 && !loading && (
-        <p className="mt-3 font-body text-sm text-slate-500">No credit transactions found yet.</p>
+      {purchaseApprovalHistory.length === 0 && !loading && (
+        <p className="mt-3 font-body text-sm text-slate-500">No purchase requests found yet.</p>
       )}
-      {purchaseHistory.length > 0 && (
+      {purchaseApprovalHistory.length > 0 && (
         <div className="mt-3 divide-y divide-hairline rounded-sm border border-hairline bg-white overflow-hidden">
-          {purchaseHistory.map((entry) => (
+          {purchaseApprovalHistory.map((entry) => (
+            <div key={entry.id} className="flex flex-wrap items-center justify-between gap-4 px-6 py-4">
+              <div>
+                <p className="font-body text-sm text-ink-900">{entry.email}</p>
+                <p className="mt-0.5 font-body text-xs text-slate-500">
+                  ${entry.amount_usd} · {entry.vc} VC via {entry.method}
+                </p>
+                {entry.note ? <p className="mt-0.5 font-body text-xs text-slate-500">{entry.note}</p> : null}
+                <p className="mt-0.5 font-mono text-[11px] text-slate-400">
+                  {entry.created_at ? new Date(entry.created_at).toLocaleString() : "—"}
+                  {entry.resolved_at ? ` · Resolved ${new Date(entry.resolved_at).toLocaleString()}` : ""}
+                </p>
+              </div>
+              <div className="text-right">
+                <p className={`font-body text-sm font-medium ${entry.status === "approved" ? "text-emerald-700" : entry.status === "rejected" ? "text-red-700" : "text-gold-700"}`}>
+                  {entry.status}
+                </p>
+                <p className="mt-0.5 font-body text-xs text-slate-500">{entry.vc} VC</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <h3 className="mt-10 font-mono text-xs uppercase tracking-widest text-slate-500">
+        Credit usage history
+      </h3>
+      {usageHistory.length === 0 && !loading && (
+        <p className="mt-3 font-body text-sm text-slate-500">No credit spend/refund transactions found yet.</p>
+      )}
+      {usageHistory.length > 0 && (
+        <div className="mt-3 divide-y divide-hairline rounded-sm border border-hairline bg-white overflow-hidden">
+          {usageHistory.map((entry) => (
             <div key={entry.id} className="flex flex-wrap items-center justify-between gap-4 px-6 py-4">
               <div>
                 <p className="font-body text-sm text-ink-900">{entry.email}</p>
@@ -1190,7 +1209,7 @@ export default function AdminDashboard() {
         </div>
         <div className="flex items-center gap-4">
           <button
-            onClick={() => navigate("/")}
+            onClick={() => navigate("/admin/home")}
             className="rounded-sm border border-ink-900 px-3 py-1.5 font-body text-sm font-medium text-ink-900 transition hover:bg-ink-900 hover:text-white"
           >
             Home

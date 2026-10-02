@@ -52,6 +52,25 @@ function buildCreditHistoryEntries({ transactions, creditRequests, email }) {
   );
 }
 
+function buildCreditPurchaseRequestEntries({ creditRequests, email }) {
+  const normalizedEmail = (email || "").toLowerCase().trim();
+  return (creditRequests || [])
+    .filter((item) => ((item.email || "").toLowerCase().trim() === normalizedEmail))
+    .map((item) => ({
+      id: `request-${item.id}`,
+      request_id: item.id,
+      email: item.email,
+      amount_usd: Number(item.amount_usd || 0),
+      vc: Number(item.vc || 0),
+      method: item.method || "",
+      note: item.note || "",
+      status: item.status || "pending",
+      created_at: item.created_at,
+      resolved_at: item.resolved_at || null,
+    }))
+    .sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+}
+
 function shapeProfile(profile) {
   return {
     id: profile.id,
@@ -93,6 +112,10 @@ async function buildStudentDashboardSnapshot(profileId) {
     appointments,
     transactions: buildCreditHistoryEntries({
       transactions,
+      creditRequests: allCreditRequests,
+      email: profile.email,
+    }),
+    purchase_requests: buildCreditPurchaseRequestEntries({
       creditRequests: allCreditRequests,
       email: profile.email,
     }),
@@ -246,7 +269,11 @@ export async function myTransactions(req, res) {
     creditRequests: allCreditRequests,
     email: profile.email,
   });
-  res.json({ transactions: history });
+  const purchaseRequests = buildCreditPurchaseRequestEntries({
+    creditRequests: allCreditRequests,
+    email: profile.email,
+  });
+  res.json({ transactions: history, purchase_requests: purchaseRequests });
 }
 
 export async function getStudentProfileAdmin(req, res) {

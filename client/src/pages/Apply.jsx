@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import Nav from "../components/Nav.jsx";
 import Footer from "../components/Footer.jsx";
-import { api } from "../lib/api.js";
+import { api, isLoggedIn } from "../lib/api.js";
 import { formatMeetingDateTime } from "../lib/meetingTime.js";
 import { SERVICES } from "../lib/pricing.js";
 import { getStudentSession } from "../lib/studentAuth.js";
@@ -81,6 +81,12 @@ function getEssayWordCountWarning(item) {
 
 export default function Apply() {
   const [profile, setProfile] = useState(null);
+  const [adminMode, setAdminMode] = useState(false);
+  const [adminStudent, setAdminStudent] = useState({
+    full_name: "",
+    email: "",
+    target_colleges_text: "",
+  });
   const [loadingProfile, setLoadingProfile] = useState(true);
   const [notes, setNotes] = useState("");
   const [cart, setCart] = useState([]);
@@ -95,6 +101,9 @@ export default function Apply() {
     (async () => {
       const session = await getStudentSession();
       if (!session) {
+        if (isLoggedIn()) {
+          if (active) setAdminMode(true);
+        }
         if (active) setLoadingProfile(false);
         return;
       }
@@ -126,10 +135,16 @@ export default function Apply() {
   }, []);
 
   const total = cart.reduce((sum, item) => sum + item.vc, 0);
-  const balance = profile ? profile.credits : 0;
+  const balance = adminMode ? 999999 : profile ? profile.credits : 0;
   const remaining = balance - total;
-  const overBudget = remaining < 0;
+  const overBudget = adminMode ? false : remaining < 0;
   const hasMeetingSlots = meetingSlots.length > 0;
+  const targetCollegesText = Array.isArray(profile?.target_colleges)
+    ? profile.target_colleges.filter(Boolean).join(", ")
+    : adminStudent.target_colleges_text.trim();
+
+  const submitterName = adminMode ? adminStudent.full_name.trim() : profile?.full_name || "";
+  const submitterEmail = adminMode ? adminStudent.email.trim().toLowerCase() : profile?.email || "";
 
   function addItem(service) {
     setCart((c) => [
@@ -194,7 +209,14 @@ export default function Apply() {
     setErrors({});
 
     const fieldErrors = {};
-    if (!profile || !profile.email) {
+    if (adminMode) {
+      if (!submitterName) {
+        fieldErrors.admin_full_name = "Student full name is required in admin mode.";
+      }
+      if (!submitterEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(submitterEmail)) {
+        fieldErrors.admin_email = "A valid student email is required in admin mode.";
+      }
+    } else if (!profile || !profile.email) {
       fieldErrors.cart = "Please sign in again so we can load your student profile before submitting.";
     }
     if (cart.length === 0) fieldErrors.cart = "Select at least one service to submit.";
@@ -239,27 +261,30 @@ export default function Apply() {
     setSubmitting(true);
     try {
       const session = await getStudentSession();
-      if (!session) throw new Error("Please sign in again before submitting.");
+      if (!session && !adminMode) throw new Error("Please sign in again before submitting.");
       for (const item of cart) {
         if (item.key === "meeting") {
           await api.createAppointment(
             {
               service: "meeting",
               slotId: item.slotId,
+              studentName: submitterName,
+              studentEmail: submitterEmail,
               note: notes.trim(),
             },
-            session.access_token
+            session?.access_token,
+            { auth: adminMode }
           );
         }
 
         const formData = new FormData();
-        formData.append("name", profile?.full_name || "");
-        formData.append("email", profile?.email || "");
+        formData.append("name", submitterName);
+        formData.append("email", submitterEmail);
         formData.append("notes", notes.trim());
         formData.append("service_key", item.key);
         formData.append("service_label", item.label);
         formData.append("submission_custom_name", item.submissionCustomName.trim());
-        formData.append("colleges", isEssayService(item.key) ? item.essayForCollege.trim() : "Not provided");
+        formData.append("colleges", targetCollegesText || "Not provided");
         formData.append("submission_checklist", JSON.stringify(item.checklist || []));
         if (isEssayService(item.key)) {
           formData.append("essay_for_college", item.essayForCollege.trim());
@@ -267,9 +292,9 @@ export default function Apply() {
           formData.append("essay_prompt", item.essayPrompt.trim());
         }
         if (item.file) formData.append("pdf", item.file);
-        await api.submitApplication(formData, { token: session.access_token });
+        await api.submitApplication(formData, adminMode ? { auth: true } : { token: session?.access_token });
       }
-      navigate("/apply/confirmation", { state: { name: profile?.full_name || "Student" } });
+      navigate("/apply/confirmation", { state: { name: submitterName || "Student" } });
     } catch (err) {
       setSubmitError(err.message || "Something went wrong. Please try again.");
     } finally {
@@ -298,6 +323,47 @@ export default function Apply() {
           <p className="mt-8 font-body text-sm text-ink-400">Loading your account…</p>
         ) : (
           <form onSubmit={handleSubmit} className="mt-10 space-y-8">
+            {adminMode && (
+              <div className="rounded-sm border border-blue-200 bg-blue-50 px-5 py-4">
+                <p className="font-body text-sm font-medium text-blue-900">Admin website mode</p>
+                <p className="mt-1 font-body text-xs text-blue-800">
+                  You are submitting through your admin session. Enter the student identity below.
+                </p>
+                <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                  <label className="block">
+                    <span className="font-body text-xs text-blue-900">Student full name</span>
+                    <input
+                      value={adminStudent.full_name}
+                      onChange={(e) => setAdminStudent((s) => ({ ...s, full_name: e.target.value }))}
+                      className="mt-1.5 w-full rounded-sm border border-blue-200 bg-white px-3 py-2 font-body text-xs text-ink-900"
+                      placeholder="e.g., Alex Johnson"
+                    />
+                    {errors.admin_full_name && <p className="mt-1 text-xs text-red-700">{errors.admin_full_name}</p>}
+                  </label>
+                  <label className="block">
+                    <span className="font-body text-xs text-blue-900">Student email</span>
+                    <input
+                      type="email"
+                      value={adminStudent.email}
+                      onChange={(e) => setAdminStudent((s) => ({ ...s, email: e.target.value }))}
+                      className="mt-1.5 w-full rounded-sm border border-blue-200 bg-white px-3 py-2 font-body text-xs text-ink-900"
+                      placeholder="student@email.com"
+                    />
+                    {errors.admin_email && <p className="mt-1 text-xs text-red-700">{errors.admin_email}</p>}
+                  </label>
+                </div>
+                <label className="mt-3 block">
+                  <span className="font-body text-xs text-blue-900">Target colleges (from dashboard profile)</span>
+                  <input
+                    value={adminStudent.target_colleges_text}
+                    onChange={(e) => setAdminStudent((s) => ({ ...s, target_colleges_text: e.target.value }))}
+                    className="mt-1.5 w-full rounded-sm border border-blue-200 bg-white px-3 py-2 font-body text-xs text-ink-900"
+                    placeholder="e.g., PSU, Georgia Tech"
+                  />
+                </label>
+              </div>
+            )}
+
             {profile && (
               <div className="rounded-sm border border-hairline bg-white px-5 py-3.5 font-body text-sm text-ink-600">
                 Submitting as <strong className="text-ink-900">{profile.full_name}</strong>{" "}
@@ -308,7 +374,7 @@ export default function Apply() {
               </div>
             )}
 
-            {!profile && !loadingProfile && (
+            {!profile && !adminMode && !loadingProfile && (
               <div className="rounded-sm border border-amber-200 bg-amber-50 px-5 py-4">
                 <p className="font-body text-sm text-amber-900">
                   Sign in to submit your checklist-based application.

@@ -15,6 +15,7 @@ export default function StudentDashboard() {
   const [submissions, setSubmissions] = useState([]);
   const [appointments, setAppointments] = useState([]);
   const [transactions, setTransactions] = useState([]);
+  const [purchaseRequests, setPurchaseRequests] = useState([]);
   const [availableSlots, setAvailableSlots] = useState([]);
   const [rescheduleChoices, setRescheduleChoices] = useState({});
   const [rescheduleBusyId, setRescheduleBusyId] = useState("");
@@ -58,6 +59,7 @@ export default function StudentDashboard() {
         let appointments;
         let slots;
         let transactions;
+        let purchaseRequests;
 
         if (viewToken) {
           setIsReadOnlyView(true);
@@ -67,6 +69,7 @@ export default function StudentDashboard() {
           submissions = snapshot.submissions;
           appointments = snapshot.appointments;
           transactions = snapshot.transactions;
+          purchaseRequests = snapshot.purchase_requests;
           slots = [];
           setViewedByAdmin(snapshot.viewed_by || "");
         } else {
@@ -84,6 +87,7 @@ export default function StudentDashboard() {
           appointments = data[2].appointments;
           slots = data[3].slots;
           transactions = data[4].transactions;
+          purchaseRequests = data[4].purchase_requests;
         }
 
         if (active) {
@@ -91,6 +95,7 @@ export default function StudentDashboard() {
           setSubmissions(submissions || []);
           setAppointments(appointments || []);
           setTransactions(transactions || []);
+          setPurchaseRequests(purchaseRequests || []);
           setAvailableSlots((slots || []).filter((slot) => !slot.isBooked));
           setProfileForm({
             full_name: profile.full_name || "",
@@ -657,13 +662,50 @@ export default function StudentDashboard() {
         </div>
 
         <div className="mt-5 rounded-sm bg-white p-7 paper-shadow">
+          <h2 className="font-display text-xl text-ink-900">Credit purchase requests</h2>
+          {purchaseRequests.length === 0 && (
+            <p className="mt-2 font-body text-sm text-ink-400">No credit purchase requests yet.</p>
+          )}
+          {purchaseRequests.length > 0 && (
+            <div className="mt-4 space-y-3">
+              {purchaseRequests.map((entry) => (
+                <div key={entry.id} className="rounded-sm border border-hairline bg-parchment p-4">
+                  <div className="flex items-center justify-between gap-4">
+                    <div>
+                      <p className="font-body text-sm font-medium text-ink-900">
+                        ${entry.amount_usd} purchase request via {(entry.method || "payment").toUpperCase()}
+                      </p>
+                      <p className="mt-1 font-body text-xs text-slate-500">
+                        Submitted {entry.created_at ? new Date(entry.created_at).toLocaleString() : "—"}
+                        {entry.resolved_at ? ` · Resolved ${new Date(entry.resolved_at).toLocaleString()}` : ""}
+                      </p>
+                      {entry.note ? (
+                        <p className="mt-1 font-body text-xs text-slate-500">{entry.note}</p>
+                      ) : null}
+                    </div>
+                    <div className="text-right">
+                      <p className={`font-body text-sm font-medium ${entry.status === "approved" ? "text-emerald-700" : entry.status === "rejected" ? "text-red-700" : "text-gold-700"}`}>
+                        {entry.status}
+                      </p>
+                      <p className="mt-0.5 font-body text-xs text-slate-500">{entry.vc} VC</p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="mt-5 rounded-sm bg-white p-7 paper-shadow">
           <h2 className="font-display text-xl text-ink-900">Credit history</h2>
-          {transactions.length === 0 && (
+          {transactions.filter((entry) => entry.type !== "credit_purchase" && entry.type !== "credit_request_rejected").length === 0 && (
             <p className="mt-2 font-body text-sm text-ink-400">No credit transactions yet.</p>
           )}
-          {transactions.length > 0 && (
+          {transactions.filter((entry) => entry.type !== "credit_purchase" && entry.type !== "credit_request_rejected").length > 0 && (
             <div className="mt-4 space-y-3">
-              {transactions.map((entry) => (
+              {transactions
+                .filter((entry) => entry.type !== "credit_purchase" && entry.type !== "credit_request_rejected")
+                .map((entry) => (
                 <div key={entry.id} className="flex items-center justify-between gap-4 rounded-sm border border-hairline bg-parchment p-4">
                   <div>
                     <p className="font-body text-sm font-medium text-ink-900">{entry.note || entry.type}</p>

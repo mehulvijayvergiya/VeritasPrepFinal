@@ -64,10 +64,10 @@ const FAQS = [
   },
 ];
 
-export default function Landing() {
+export default function Landing({ adminMode = false }) {
   return (
     <div>
-      <Nav />
+      <Nav adminMode={adminMode} />
 
       {/* HERO */}
       <section className="mx-auto max-w-3xl px-6 pb-16 pt-16 text-center sm:pt-24">
