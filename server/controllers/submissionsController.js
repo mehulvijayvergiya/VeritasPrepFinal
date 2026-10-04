@@ -75,6 +75,25 @@ function isTruthyCharged(value) {
   return value === true || value === 1 || value === "1" || value === "true";
 }
 
+async function hasMatchingSpendTransaction(submission, resolvedVcCost) {
+  const email = (submission?.email || "").toLowerCase().trim();
+  if (!email) return false;
+
+  const entries = await Transaction.listByEmail(email);
+  const serviceToken = (submission?.service_label || submission?.service_key || "submission")
+    .toLowerCase()
+    .trim();
+  const expected = Math.abs(Number(resolvedVcCost || 0));
+
+  return entries.some((entry) => {
+    if (entry.type !== "credit_spend") return false;
+    const amount = Math.abs(Number(entry.amount || 0));
+    if (amount !== expected) return false;
+    const note = String(entry.note || "").toLowerCase();
+    return serviceToken ? note.includes(serviceToken) : true;
+  });
+}
+
 function toSafeSegment(value) {
   return (value || "")
     .toString()
@@ -364,13 +383,19 @@ export async function updateSubmission(req, res) {
     if (!existing) return res.status(404).json({ error: "Submission not found." });
 
     const nextStatus = status || existing.status;
+    const wasApprovalStatus = existing.status === "in_review" || existing.status === "completed";
     const isApprovalStatus = nextStatus === "in_review" || nextStatus === "completed";
     const existingCharged = isTruthyCharged(existing.vc_charged);
     const resolvedVcCost = resolveSubmissionVcCost(existing);
-    const shouldCharge = isApprovalStatus && !existingCharged && resolvedVcCost > 0;
-    const shouldRefund = nextStatus === "pending" && existingCharged && resolvedVcCost > 0;
+    const canRefundFromHistory = existingCharged || (await hasMatchingSpendTransaction(existing, resolvedVcCost));
+    // Only charge on actual transition into an approval status.
+    const shouldCharge = !wasApprovalStatus && isApprovalStatus && resolvedVcCost > 0;
+    // Refund only when we can prove a prior charge exists.
+    const shouldRefund =
+      wasApprovalStatus && nextStatus === "pending" && resolvedVcCost > 0 && canRefundFromHistory;
+    let billingWarning = null;
 
-    if (isApprovalStatus && !existingCharged && resolvedVcCost <= 0) {
+    if (!wasApprovalStatus && isApprovalStatus && resolvedVcCost <= 0) {
       return res.status(422).json({
         error:
           "This submission has no pricing configured, so credits could not be deducted. Please set a valid service type and try again.",
@@ -384,16 +409,19 @@ export async function updateSubmission(req, res) {
           email: existing.email,
           delta: -Math.abs(resolvedVcCost),
         });
+
+        await Transaction.create({
+          email: existing.email,
+          type: "credit_spend",
+          amount: -Math.abs(resolvedVcCost),
+          note: `Credits spent for ${existing.service_label || existing.service_key || "submission"}`,
+          status: "completed",
+        });
       } catch (creditErr) {
-        return res.status(422).json({ error: creditErr.message || "Unable to deduct credits." });
+        billingWarning =
+          creditErr.message ||
+          "Could not deduct credits because the account does not have enough balance.";
       }
-      await Transaction.create({
-        email: existing.email,
-        type: "credit_spend",
-        amount: -Math.abs(resolvedVcCost),
-        note: `Credits spent for ${existing.service_label || existing.service_key || "submission"}`,
-        status: "completed",
-      });
     }
 
     if (shouldRefund) {
@@ -430,9 +458,13 @@ export async function updateSubmission(req, res) {
       reviewer_notes,
       payment_verified,
       vc_charged:
-        shouldCharge ? true : shouldRefund ? false : existingCharged,
+        shouldCharge && !billingWarning ? true : shouldRefund ? false : existingCharged,
       vc_charged_at:
-        shouldCharge ? new Date().toISOString() : shouldRefund ? null : existing.vc_charged_at,
+        shouldCharge && !billingWarning
+          ? new Date().toISOString()
+          : shouldRefund
+          ? null
+          : existing.vc_charged_at,
       vc_cost: resolvedVcCost > 0 ? resolvedVcCost : existing.vc_cost,
       feedback_attachment_filename: req.file ? req.file.originalname : undefined,
       feedback_attachment_original_name: req.file ? req.file.originalname : undefined,
@@ -440,7 +472,7 @@ export async function updateSubmission(req, res) {
       feedback_attachment_url: feedbackUpload?.publicUrl || undefined,
     });
 
-    res.json({ submission });
+    res.json({ submission, billing_warning: billingWarning || undefined });
   } catch (err) {
     res.status(400).json({ error: err.message });
   }

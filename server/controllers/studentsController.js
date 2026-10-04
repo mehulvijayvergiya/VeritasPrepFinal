@@ -304,6 +304,11 @@ async function buildStudentDashboardSnapshot(profileId) {
   if (!profile) return null;
 
   await CreditRequest.backfillApprovedTransactions();
+  await Submission.recoverFeedbackAttachmentsForProfile({
+    profileId: profile.id,
+    email: profile.email,
+    name: profile.full_name,
+  });
 
   const [localCreditRequests, supabaseCreditRequests] = await Promise.all([
     Promise.resolve(CreditRequest.findAll()),
@@ -508,6 +513,11 @@ export async function mySubmissions(req, res) {
     email: profile.email,
     name: profile.full_name,
   });
+  await Submission.recoverFeedbackAttachmentsForProfile({
+    profileId: profile.id,
+    email: profile.email,
+    name: profile.full_name,
+  });
   await Submission.enrichRecoveredMetadata({
     profileId: profile.id,
     profileEmail: profile.email,
@@ -577,6 +587,15 @@ export async function getStudentRosterAdmin(req, res) {
     await Promise.all(
       profiles.map((profile) =>
         Submission.recoverFromStorageForProfile({
+          profileId: profile.id,
+          email: profile.email,
+          name: profile.full_name,
+        })
+      )
+    );
+    await Promise.all(
+      profiles.map((profile) =>
+        Submission.recoverFeedbackAttachmentsForProfile({
           profileId: profile.id,
           email: profile.email,
           name: profile.full_name,

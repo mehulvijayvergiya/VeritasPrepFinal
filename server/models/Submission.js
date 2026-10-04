@@ -280,6 +280,30 @@ function inferFileNameFromPath(storagePath) {
   return parts.length ? parts[parts.length - 1] : null;
 }
 
+function isFeedbackStoragePath(storagePath) {
+  return (storagePath || "").toLowerCase().includes("/feedback/");
+}
+
+function isFeedbackDerivedSubmission(submission) {
+  return isFeedbackStoragePath(submission?.attachment_storage_path || submission?.attachment_path);
+}
+
+function inferServiceKeyFromText(text) {
+  const lower = (text || "").toLowerCase();
+  if (!lower) return null;
+  if (lower.includes("activities")) return "activities";
+  if (lower.includes("301-500")) return "essay_medium";
+  if (lower.includes("300-words") || lower.includes("<= 300") || lower.includes("1-300")) return "essay_short";
+  if (lower.includes("common-app") || lower.includes("501+") || lower.includes("> 500") || lower.includes("500-words")) return "essay_long";
+  if (lower.includes("meeting")) return "meeting";
+  return null;
+}
+
+function toTimestamp(value) {
+  const ts = value ? new Date(value).getTime() : NaN;
+  return Number.isFinite(ts) ? ts : null;
+}
+
 export const Submission = {
   async create({
     name,
@@ -366,9 +390,12 @@ export const Submission = {
 
   async findAll() {
     try {
-      return await refreshSubmissionsFromSupabase();
+      return (await refreshSubmissionsFromSupabase()).filter((submission) => !isFeedbackDerivedSubmission(submission));
     } catch {
-      return db.data.submissions.map(hydrateSubmission).sort(
+      return db.data.submissions
+        .map(hydrateSubmission)
+        .filter((submission) => !isFeedbackDerivedSubmission(submission))
+        .sort(
         (a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0)
       );
     }
@@ -407,6 +434,7 @@ export const Submission = {
     const normalizedEmail = (profileEmail || "").toLowerCase().trim();
     let matched = db.data.submissions
       .filter((s) => {
+        if (isFeedbackDerivedSubmission(s)) return false;
         if (profileId && s.profile_id === profileId) return true;
         if (!normalizedEmail || !s.email) return false;
         return s.email.toLowerCase() === normalizedEmail;
@@ -428,6 +456,7 @@ export const Submission = {
         }
         matched = db.data.submissions
           .filter((s) => {
+            if (isFeedbackDerivedSubmission(s)) return false;
             if (profileId && s.profile_id === profileId) return true;
             if (!normalizedEmail || !s.email) return false;
             return s.email.toLowerCase() === normalizedEmail;
@@ -449,6 +478,7 @@ export const Submission = {
 
     const normalizedEmail = (profileEmail || "").toLowerCase().trim();
     const candidates = db.data.submissions.filter((submission) => {
+      if (isFeedbackDerivedSubmission(submission)) return false;
       if (profileId && submission.profile_id === profileId) return true;
       if (normalizedEmail && submission.email && submission.email.toLowerCase() === normalizedEmail) return true;
       return false;
@@ -505,6 +535,93 @@ export const Submission = {
     return changed;
   },
 
+  async recoverFeedbackAttachmentsForProfile({ profileId, email, name } = {}) {
+    const normalizedEmail = (email || "").toLowerCase().trim();
+    if (!profileId && !normalizedEmail && !name) return 0;
+
+    try {
+      await refreshSubmissionsFromSupabase();
+    } catch {
+      // Continue with local cache snapshot.
+    }
+
+    const feedbackPrefixes = [];
+    const seenPrefixes = new Set();
+    function pushPrefix(prefix) {
+      if (!prefix || seenPrefixes.has(prefix)) return;
+      seenPrefixes.add(prefix);
+      feedbackPrefixes.push(prefix);
+    }
+
+    if (profileId) pushPrefix(`students/${profileId}/feedback`);
+    if (normalizedEmail) {
+      pushPrefix(`students/${normalizedEmail}/feedback`);
+      pushPrefix(`students/${toSafeSegment(normalizedEmail)}/feedback`);
+    }
+    if (name) {
+      pushPrefix(`students/${name}/feedback`);
+      pushPrefix(`students/${toSafeSegment(name)}/feedback`);
+    }
+
+    const feedbackFiles = [];
+    for (const prefix of feedbackPrefixes) {
+      await listStorageFilesRecursive(prefix, feedbackFiles);
+    }
+
+    if (feedbackFiles.length === 0) return 0;
+
+    const candidates = db.data.submissions.filter((submission) => {
+      if (isFeedbackDerivedSubmission(submission)) return false;
+      if (profileId && submission.profile_id === profileId) return true;
+      if (normalizedEmail && submission.email && submission.email.toLowerCase() === normalizedEmail) return true;
+      return false;
+    });
+
+    const usedSubmissionIds = new Set();
+    let updatedCount = 0;
+
+    for (const file of feedbackFiles) {
+      if (!String(file.path || "").toLowerCase().endsWith(".pdf")) continue;
+
+      const alreadyAssigned = candidates.some(
+        (submission) => submission.feedback_attachment_storage_path === file.path
+      );
+      if (alreadyAssigned) continue;
+
+      const inferredServiceKey = inferServiceKeyFromText(file.path) || inferServiceKeyFromText(file.name);
+      const fileTs = toTimestamp(file.created_at);
+
+      const ranked = candidates
+        .filter((submission) => !submission.feedback_attachment_storage_path)
+        .filter((submission) => !usedSubmissionIds.has(submission.id))
+        .filter((submission) => !inferredServiceKey || submission.service_key === inferredServiceKey)
+        .map((submission) => {
+          const updatedTs = toTimestamp(submission.updated_at) || toTimestamp(submission.created_at) || 0;
+          const diff = fileTs !== null ? Math.abs(updatedTs - fileTs) : Number.MAX_SAFE_INTEGER;
+          return { submission, diff, updatedTs };
+        })
+        .sort((a, b) => a.diff - b.diff || b.updatedTs - a.updatedTs);
+
+      const match = ranked[0]?.submission;
+      if (!match) continue;
+
+      match.feedback_attachment_storage_path = file.path;
+      match.feedback_attachment_filename = file.name || inferFileNameFromPath(file.path) || "feedback.pdf";
+      match.feedback_attachment_original_name =
+        match.feedback_attachment_original_name || match.feedback_attachment_filename;
+      match.updated_at = new Date().toISOString();
+      usedSubmissionIds.add(match.id);
+      await syncSubmissionToSupabase(match);
+      updatedCount += 1;
+    }
+
+    if (updatedCount > 0) {
+      await db.write();
+    }
+
+    return updatedCount;
+  },
+
   async recoverFromStorageForProfile({ profileId, email, name }) {
     const normalizedEmail = (email || "").toLowerCase().trim();
     if (!profileId && !normalizedEmail && !name) return 0;
@@ -549,6 +666,7 @@ export const Submission = {
     for (const file of files) {
       const lowerPath = (file.path || "").toLowerCase();
       if (!lowerPath.endsWith(".pdf")) continue;
+      if (isFeedbackStoragePath(file.path)) continue;
       if (existingPaths.has(file.path)) continue;
 
       const serviceKey = inferServiceKeyFromPath(file.path);
